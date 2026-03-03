@@ -8,18 +8,29 @@ sys.path.insert(0, 'src')
 CHECKPOINT_DIR = Path("checkpoints")
 CHECKPOINT_DIR.mkdir(exist_ok=True)
 
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+DEVICE = torch.device(
+    "cuda"
+    if torch.cuda.is_available()
+    else "mps"
+    if torch.backends.mps.is_available()
+    else "cpu"
+)
 
 
 def train_reinforce(episodes: int, gamma: float, lr: float, checkpoint: str = None, save_period: int = 10, n_envs: int = 1):
-    """Train REINFORCE on Bowling."""
-    from reinforce import episode_termination, policy, optimizer
+    """Train PPO-Clip (actor-only) on Bowling with batch-only vector rollouts."""
+    from reinforce import episode_termination, policy
 
-    print(f"Training REINFORCE on Bowling")
+    if n_envs < 1:
+        raise ValueError("n_envs must be >= 1.")
+
+    print(f"Training PPO-Clip on Bowling")
     print(f"  Device: {DEVICE}")
     print(f"  Episodes: {episodes}")
     print(f"  Gamma: {gamma}")
     print(f"  LR: {lr}")
+    print(f"  PPO mode: actor-only, full-batch")
+    print(f"  Parallel envs per update: {n_envs}")
     print(f"  Save period: {save_period} episodes")
     print()
 
@@ -43,7 +54,7 @@ def train_reinforce(episodes: int, gamma: float, lr: float, checkpoint: str = No
     episode_termination(episodes, n_envs=n_envs, save_period=save_period, checkpoint_dir=CHECKPOINT_DIR)
 
     # Save final checkpoint
-    checkpoint_path = CHECKPOINT_DIR / f"policy_reinforce_ep{episodes}_gamma{gamma}_lr{lr:.0e}.pt"
+    checkpoint_path = CHECKPOINT_DIR / f"policy_ppo_clip_ep{episodes}_gamma{gamma}_lr{lr:.0e}.pt"
     torch.save(policy.state_dict(), checkpoint_path)
     print(f"\n✓ Final checkpoint saved to {checkpoint_path}")
 
@@ -108,18 +119,18 @@ def eval_policy(checkpoint: str, episodes: int = 5):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="REINFORCE agent on Bowling")
+    parser = argparse.ArgumentParser(description="PPO-Clip agent on Bowling")
 
     subparsers = parser.add_subparsers(dest="command", help="Command: train or eval")
 
     # Train command
-    train_parser = subparsers.add_parser("train", help="Train REINFORCE")
+    train_parser = subparsers.add_parser("train", help="Train PPO-Clip (batch-only)")
     train_parser.add_argument("--episodes", type=int, default=100, help="Number of training episodes")
     train_parser.add_argument("--gamma", type=float, default=0.998, help="Discount factor")
     train_parser.add_argument("--lr", type=float, default=1e-3, help="Learning rate")
     train_parser.add_argument("--checkpoint", type=str, default=None, help="Load checkpoint")
     train_parser.add_argument("--save-period", type=int, default=10, help="Save checkpoint every N episodes")
-    train_parser.add_argument("--n-envs", type=int, default=1, help="Number of parallel environments per update")
+    train_parser.add_argument("--n-envs", type=int, default=1, help="Number of parallel environments per PPO update (>=1)")
 
     # Eval command
     eval_parser = subparsers.add_parser("eval", help="Evaluate trained policy")

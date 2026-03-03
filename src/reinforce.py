@@ -7,12 +7,14 @@ import gymnasium.spaces as spaces
 from gymnasium.vector import AsyncVectorEnv
 from torch.utils.tensorboard import SummaryWriter
 
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
 
 policy = mlp.PolicyNetwork().to(DEVICE)
 env = bowling_env.BowlingThrowEnv()  # kept for eval in main.py
-optimizer = torch.optim.Adam(policy.parameters(), lr=0.001)
+optimizer = torch.optim.Adam(policy.parameters(), lr=0.003)
 gamma = 0.998
+ppo_clip_epsilon = 0.2
+ppo_update_epochs = 20
 
 
 # ---------------------------------------------------------------------------
@@ -58,21 +60,26 @@ def _rollout_async(vec_env, n_envs):
     it gets NOOP actions until the rest catch up.
     GPU forward pass is batched over all n_envs observations at once.
 
-    Returns: log_probs_per_env, rewards_per_env, steps_per_env
+    Returns:
+      obs_per_env, actions_per_env, old_log_probs_per_env, rewards_per_env, steps_per_env
     """
     obs_np, _ = vec_env.reset()                      # (n_envs, 1, 84, 84) float32
 
     active = np.ones(n_envs, dtype=bool)
-    log_probs_per = [[] for _ in range(n_envs)]
+    obs_per = [[] for _ in range(n_envs)]
+    actions_per = [[] for _ in range(n_envs)]
+    old_log_probs_per = [[] for _ in range(n_envs)]
     rewards_per   = [[] for _ in range(n_envs)]
     steps_per     = [0]  * n_envs
 
     while active.any():
         # One batched GPU forward pass for all n_envs
+        obs_before_step = obs_np.copy()
         obs_t = torch.tensor(obs_np, dtype=torch.float32, device=DEVICE)
-        log_probs_all = policy.get_action_log_probabilities(obs_t)   # (n_envs, 6)
-        probs = log_probs_all.exp()
-        actions = torch.multinomial(probs, 1).squeeze(1)              # (n_envs,)
+        with torch.no_grad():
+            log_probs_all = policy.get_action_log_probabilities(obs_t)   # (n_envs, 6)
+            probs = log_probs_all.exp()
+            actions = torch.multinomial(probs, 1).squeeze(1)              # (n_envs,)
 
         actions_np = actions.detach().cpu().numpy().astype(np.int32)
         actions_np[~active] = 0   # NOOP for already-finished envs
@@ -81,62 +88,92 @@ def _rollout_async(vec_env, n_envs):
 
         for i in range(n_envs):
             if active[i]:
-                log_probs_per[i].append(log_probs_all[i, actions[i]])
+                action_i = int(actions[i].item())
+                obs_per[i].append(obs_before_step[i])
+                actions_per[i].append(action_i)
+                old_log_probs_per[i].append(float(log_probs_all[i, action_i].item()))
                 rewards_per[i].append(float(rewards[i]))
                 steps_per[i] += 1
                 if terminated[i] or truncated[i]:
                     active[i] = False
 
-    return log_probs_per, rewards_per, steps_per
+    return obs_per, actions_per, old_log_probs_per, rewards_per, steps_per
 
 
-def _rollout_single(single_env):
-    """Collect one episode from a single env (no VectorEnv overhead)."""
-    state, _ = single_env.reset()
-    state = state.to(DEVICE)
-    log_probs, rewards = [], []
-    step_count = 0
-
-    while True:
-        log_probs_all = policy.get_action_log_probabilities(state.unsqueeze(0))
-        probs = log_probs_all.exp()
-        action = torch.multinomial(probs, 1).item()
-        next_state, reward, done, _, _ = single_env.step(action)
-        log_probs.append(log_probs_all[0, action])
-        rewards.append(reward)
-        state = next_state.to(DEVICE)
-        step_count += 1
-        if done:
-            break
-
-    return [log_probs], [rewards], [step_count]
-
-
-def _compute_returns_and_update(log_probs_per, rewards_per):
-    """Compute discounted returns, normalize, do one gradient update."""
-    batch_log_probs = []
-    batch_returns   = []
+def _compute_advantages(rewards_per):
+    """Compute discounted returns and normalize them into advantages."""
+    batch_returns = []
     ep_totals       = []
 
-    for log_probs, rewards in zip(log_probs_per, rewards_per):
+    for rewards in rewards_per:
         G, returns = 0, []
         for r in reversed(rewards):
             G = r + gamma * G
             returns.insert(0, G)
-        batch_log_probs.extend(log_probs)
         batch_returns.extend(returns)
         ep_totals.append(sum(rewards))
 
-    returns_t = torch.tensor(batch_returns, dtype=torch.float32, device=DEVICE)
-    returns_t = (returns_t - returns_t.mean()) / (returns_t.std() + 1e-8)
-    log_probs_t = torch.stack(batch_log_probs)
-    loss = -torch.sum(log_probs_t * returns_t)
+    advantages_t = torch.tensor(batch_returns, dtype=torch.float32, device=DEVICE)
+    advantages_t = (advantages_t - advantages_t.mean()) / (advantages_t.std(unbiased=False) + 1e-8)
+    return advantages_t, ep_totals
 
-    optimizer.zero_grad()
-    loss.backward()
-    optimizer.step()
 
-    return loss.item(), ep_totals
+def _flatten_rollout(obs_per, actions_per, old_log_probs_per):
+    """Flatten per-env rollout data to tensors aligned by sample index."""
+    batch_obs = []
+    batch_actions = []
+    batch_old_log_probs = []
+
+    for obs_list, actions_list, log_probs_list in zip(obs_per, actions_per, old_log_probs_per):
+        batch_obs.extend(obs_list)
+        batch_actions.extend(actions_list)
+        batch_old_log_probs.extend(log_probs_list)
+
+    obs_t = torch.tensor(np.asarray(batch_obs), dtype=torch.float32, device=DEVICE)
+    actions_t = torch.tensor(batch_actions, dtype=torch.long, device=DEVICE)
+    old_log_probs_t = torch.tensor(batch_old_log_probs, dtype=torch.float32, device=DEVICE)
+    return obs_t, actions_t, old_log_probs_t
+
+
+def _ppo_update(obs_per, actions_per, old_log_probs_per, advantages_t):
+    """Run multiple PPO-Clip policy updates on one rollout batch."""
+    obs_t, actions_t, old_log_probs_t = _flatten_rollout(obs_per, actions_per, old_log_probs_per)
+
+    if advantages_t.numel() != actions_t.numel():
+        raise ValueError("Mismatch between rollout samples and computed advantages.")
+
+    policy_losses = []
+    approx_kls = []
+    clip_fractions = []
+
+    for _ in range(ppo_update_epochs):
+        log_probs_all = policy.get_action_log_probabilities(obs_t)  # (batch, n_actions)
+        new_log_probs_t = log_probs_all.gather(1, actions_t.unsqueeze(1)).squeeze(1)
+
+        ratio = torch.exp(new_log_probs_t - old_log_probs_t)
+        clipped_ratio = torch.clamp(ratio, 1.0 - ppo_clip_epsilon, 1.0 + ppo_clip_epsilon)
+
+        surr1 = ratio * advantages_t
+        surr2 = clipped_ratio * advantages_t
+        policy_loss = -torch.mean(torch.min(surr1, surr2))
+
+        optimizer.zero_grad()
+        policy_loss.backward()
+        optimizer.step()
+
+        with torch.no_grad():
+            approx_kl = (old_log_probs_t - new_log_probs_t).mean()
+            clip_fraction = ((ratio - 1.0).abs() > ppo_clip_epsilon).float().mean()
+
+        policy_losses.append(float(policy_loss.item()))
+        approx_kls.append(float(approx_kl.item()))
+        clip_fractions.append(float(clip_fraction.item()))
+
+    return {
+        "policy_loss": float(np.mean(policy_losses)),
+        "approx_kl": float(np.mean(approx_kls)),
+        "clip_fraction": float(np.mean(clip_fractions)),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -144,12 +181,11 @@ def _compute_returns_and_update(log_probs_per, rewards_per):
 # ---------------------------------------------------------------------------
 
 def episode_termination(episodes, n_envs=1, save_period=None, checkpoint_dir=None):
-    writer = SummaryWriter(log_dir="runs/reinforce")
+    if n_envs < 1:
+        raise ValueError("n_envs must be >= 1 for batch-only training.")
 
-    if n_envs > 1:
-        vec_env = AsyncVectorEnv([_make_numpy_env] * n_envs)
-    else:
-        vec_env = None
+    writer = SummaryWriter(log_dir="runs/ppo_clip")
+    vec_env = AsyncVectorEnv([_make_numpy_env] * n_envs)
 
     if checkpoint_dir:
         path = checkpoint_dir / "policy_ep0.pt"
@@ -158,29 +194,28 @@ def episode_termination(episodes, n_envs=1, save_period=None, checkpoint_dir=Non
 
     episode = 0
     while episode < episodes:
-        if n_envs > 1:
-            lp, rw, st = _rollout_async(vec_env, n_envs)
-        else:
-            lp, rw, st = _rollout_single(env)
-
-        loss_val, ep_totals = _compute_returns_and_update(lp, rw)
+        obs_per, actions_per, old_log_probs_per, rewards_per, st = _rollout_async(vec_env, n_envs)
+        advantages_t, ep_totals = _compute_advantages(rewards_per)
+        metrics = _ppo_update(obs_per, actions_per, old_log_probs_per, advantages_t)
         episode += len(ep_totals)
 
         mean_reward = sum(ep_totals) / len(ep_totals)
         mean_steps  = int(sum(st) / len(st))
 
         writer.add_scalar("train/mean_return", mean_reward, episode)
-        writer.add_scalar("train/loss",        loss_val,    episode)
+        writer.add_scalar("train/policy_loss", metrics["policy_loss"], episode)
+        writer.add_scalar("train/approx_kl",   metrics["approx_kl"], episode)
+        writer.add_scalar("train/clip_fraction", metrics["clip_fraction"], episode)
         writer.add_scalar("train/mean_steps",  mean_steps,  episode)
 
         print(f"Episode {episode:4d} | Envs: {n_envs} | Steps: {mean_steps:4d} | "
-              f"Return: {mean_reward:6.1f} | Loss: {loss_val:8.4f}")
+              f"Return: {mean_reward:6.1f} | PolicyLoss: {metrics['policy_loss']:8.4f} | "
+              f"KL: {metrics['approx_kl']:.5f} | ClipFrac: {metrics['clip_fraction']:.3f}")
 
         if save_period and checkpoint_dir and episode % save_period == 0:
             path = checkpoint_dir / f"policy_ep{episode}.pt"
             torch.save(policy.state_dict(), path)
             print(f"  Checkpoint saved: {path}")
 
-    if vec_env is not None:
-        vec_env.close()
+    vec_env.close()
     writer.close()

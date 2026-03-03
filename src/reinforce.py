@@ -1,5 +1,6 @@
 import torch
 import numpy as np
+from datetime import datetime
 import bowling_env
 import mlp
 import gymnasium as gym
@@ -11,10 +12,11 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.ba
 
 policy = mlp.PolicyNetwork().to(DEVICE)
 env = bowling_env.BowlingThrowEnv()  # kept for eval in main.py
-optimizer = torch.optim.Adam(policy.parameters(), lr=0.003)
-gamma = 0.998
+optimizer = torch.optim.Adam(policy.parameters(), lr=1e-2)
+gamma = 0.999
 ppo_clip_epsilon = 0.2
-ppo_update_epochs = 20
+ppo_update_epochs = 5
+ppo_num_mini_batches = 2
 
 
 # ---------------------------------------------------------------------------
@@ -136,38 +138,54 @@ def _flatten_rollout(obs_per, actions_per, old_log_probs_per):
 
 
 def _ppo_update(obs_per, actions_per, old_log_probs_per, advantages_t):
-    """Run multiple PPO-Clip policy updates on one rollout batch."""
+    """Run multiple PPO-Clip policy updates on shuffled mini-batches."""
     obs_t, actions_t, old_log_probs_t = _flatten_rollout(obs_per, actions_per, old_log_probs_per)
 
     if advantages_t.numel() != actions_t.numel():
         raise ValueError("Mismatch between rollout samples and computed advantages.")
+
+    batch_size = actions_t.size(0)
+    if batch_size == 0:
+        raise ValueError("Empty rollout batch.")
 
     policy_losses = []
     approx_kls = []
     clip_fractions = []
 
     for _ in range(ppo_update_epochs):
-        log_probs_all = policy.get_action_log_probabilities(obs_t)  # (batch, n_actions)
-        new_log_probs_t = log_probs_all.gather(1, actions_t.unsqueeze(1)).squeeze(1)
+        shuffled_idx = torch.randperm(batch_size, device=DEVICE)
+        mini_batch_indices = torch.tensor_split(shuffled_idx, ppo_num_mini_batches)
 
-        ratio = torch.exp(new_log_probs_t - old_log_probs_t)
-        clipped_ratio = torch.clamp(ratio, 1.0 - ppo_clip_epsilon, 1.0 + ppo_clip_epsilon)
+        for mb_idx in mini_batch_indices:
+            if mb_idx.numel() == 0:
+                continue
 
-        surr1 = ratio * advantages_t
-        surr2 = clipped_ratio * advantages_t
-        policy_loss = -torch.mean(torch.min(surr1, surr2))
+            mb_obs = obs_t[mb_idx]
+            mb_actions = actions_t[mb_idx]
+            mb_old_log_probs = old_log_probs_t[mb_idx]
+            mb_advantages = advantages_t[mb_idx]
 
-        optimizer.zero_grad()
-        policy_loss.backward()
-        optimizer.step()
+            log_probs_all = policy.get_action_log_probabilities(mb_obs)  # (mini_batch, n_actions)
+            new_log_probs_t = log_probs_all.gather(1, mb_actions.unsqueeze(1)).squeeze(1)
 
-        with torch.no_grad():
-            approx_kl = (old_log_probs_t - new_log_probs_t).mean()
-            clip_fraction = ((ratio - 1.0).abs() > ppo_clip_epsilon).float().mean()
+            ratio = torch.exp(new_log_probs_t - mb_old_log_probs)
+            clipped_ratio = torch.clamp(ratio, 1.0 - ppo_clip_epsilon, 1.0 + ppo_clip_epsilon)
 
-        policy_losses.append(float(policy_loss.item()))
-        approx_kls.append(float(approx_kl.item()))
-        clip_fractions.append(float(clip_fraction.item()))
+            surr1 = ratio * mb_advantages
+            surr2 = clipped_ratio * mb_advantages
+            policy_loss = -torch.mean(torch.min(surr1, surr2))
+
+            optimizer.zero_grad()
+            policy_loss.backward()
+            optimizer.step()
+
+            with torch.no_grad():
+                approx_kl = (mb_old_log_probs - new_log_probs_t).mean()
+                clip_fraction = ((ratio - 1.0).abs() > ppo_clip_epsilon).float().mean()
+
+            policy_losses.append(float(policy_loss.item()))
+            approx_kls.append(float(approx_kl.item()))
+            clip_fractions.append(float(clip_fraction.item()))
 
     return {
         "policy_loss": float(np.mean(policy_losses)),
@@ -184,7 +202,10 @@ def episode_termination(episodes, n_envs=1, save_period=None, checkpoint_dir=Non
     if n_envs < 1:
         raise ValueError("n_envs must be >= 1 for batch-only training.")
 
-    writer = SummaryWriter(log_dir="runs/ppo_clip")
+    run_name = datetime.now().strftime("%Y%m%d_%H%M%S")
+    log_dir = f"runs/ppo_clip/{run_name}"
+    writer = SummaryWriter(log_dir=log_dir)
+    print(f"TensorBoard run: {log_dir}")
     vec_env = AsyncVectorEnv([_make_numpy_env] * n_envs)
 
     if checkpoint_dir:
@@ -201,16 +222,21 @@ def episode_termination(episodes, n_envs=1, save_period=None, checkpoint_dir=Non
 
         mean_reward = sum(ep_totals) / len(ep_totals)
         mean_steps  = int(sum(st) / len(st))
+        adv_abs_mean = float(advantages_t.abs().mean().item())
+        adv_std = float(advantages_t.std(unbiased=False).item())
 
         writer.add_scalar("train/mean_return", mean_reward, episode)
         writer.add_scalar("train/policy_loss", metrics["policy_loss"], episode)
         writer.add_scalar("train/approx_kl",   metrics["approx_kl"], episode)
         writer.add_scalar("train/clip_fraction", metrics["clip_fraction"], episode)
+        writer.add_scalar("train/adv_abs_mean", adv_abs_mean, episode)
+        writer.add_scalar("train/adv_std", adv_std, episode)
         writer.add_scalar("train/mean_steps",  mean_steps,  episode)
 
         print(f"Episode {episode:4d} | Envs: {n_envs} | Steps: {mean_steps:4d} | "
               f"Return: {mean_reward:6.1f} | PolicyLoss: {metrics['policy_loss']:8.4f} | "
-              f"KL: {metrics['approx_kl']:.5f} | ClipFrac: {metrics['clip_fraction']:.3f}")
+              f"KL: {metrics['approx_kl']:.5f} | ClipFrac: {metrics['clip_fraction']:.3f} | "
+              f"AdvAbs: {adv_abs_mean:.3f} | AdvStd: {adv_std:.3f}")
 
         if save_period and checkpoint_dir and episode % save_period == 0:
             path = checkpoint_dir / f"policy_ep{episode}.pt"

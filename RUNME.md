@@ -206,25 +206,3 @@ tensorboard --logdir runs/
 Then open `http://localhost:6006` in your browser.
 
 ---
-
-## System Architecture
-
-```text
-                    +-------------------+
-                    | main.py (CLI)     |
-                    +---------+---------+
-                              |
-                 +------------+------------+
-                 |                         |
-          +------v------+          +------v-------+
-          | BowlingEnv  |          | PPO / REFO  |
-          | (gymnasium) |          | Algorithm   |
-          +------+------+          +------+------+
-                 |                        |
-          +------v------+          +------v-------+
-          | Atari Bowl  |<-------->| MLP Policy  |
-          |  simulator  |   HTTP   | (torch)     |
-          +-------------+          +-------------+
-```
-
----

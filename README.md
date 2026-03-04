@@ -95,7 +95,8 @@ CNN learns spatial features (ball edge, pin positions) and provides translation 
 ## 📐 Algorithms
 
 ### Notation
-- $\mathbb{S}$, $\mathbb{A}$ — state and action spaces.
+- $\mathbb{S}$ — state space, $s \in \mathbb{S}$ — state; $\mathbb{A}$ — action space, $a \in \mathbb{A}$ — action.
+- Environment: $S_{t+1} \sim p(\cdot\mid S_t, A_t)$
 - $S_{t+1} \sim p(\cdot\mid S_t, A_t)$, $\quad A_t \sim \pi^{\theta}(\cdot\mid S_t)$, $\quad R_t \sim p^{R}(\cdot\mid S_t, A_t)$.
 - Trajectory: $z_{0:\tau} = \{(s_0,a_0), \dots, (s_{\tau-1},a_{\tau-1})\}$.
 

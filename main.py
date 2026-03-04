@@ -160,7 +160,7 @@ if __name__ == "__main__":
 
     # Train command
     train_parser = subparsers.add_parser("train", help="Train PPO or REINFORCE (batch-only)")
-    train_parser.add_argument("--algo", type=str, choices=["ppo", "reinforce"], default="ppo", help="Training algorithm")
+    train_parser.add_argument("--algo", type=str, choices=["ppo", "reinforce", "trpo"], default="ppo", help="Training algorithm")
     train_parser.add_argument("--episodes", type=int, default=100, help="Number of training episodes")
     train_parser.add_argument("--gamma", type=float, default=0.999, help="Discount factor")
     train_parser.add_argument("--lr", type=float, default=1e-3, help="Learning rate")

@@ -308,19 +308,18 @@ For PPO, an additional **value head**:
 
 ### Hyperparameters
 
-Default recommended settings:
+Default settings from code:
 
-**PPO:**
-- Learning rate: `1e-3` to `3e-4`
-- Discount factor γ: `0.99`
+**PPO & REINFORCE:**
+- Learning rate: `1e-3`
+- Discount factor γ: `0.999`
+- Number if envs: `5`
+
+**PPO-specific:**
 - Clipping range ε: `0.2`
 - Optimization epochs: `10` per batch
-- Mini-batch size: `32` to `64`
-
-**REINFORCE:**
-- Learning rate: `1e-4` to `1e-3` (higher variance → smaller LR helps)
-- Discount factor γ: `0.99`
-- No baseline (can add one for variance reduction)
+- Mini-batches per epoch: `2`
+- Number if envs: `5`
 
 ### Optimization
 
@@ -331,14 +330,59 @@ Both algorithms use:
   - REINFORCE: `-E[log π_θ(a|s) · G_t]`
   - PPO: `L^CLIP(θ) - c_v L^VALUE(θ) + c_e H[π_θ]` (with optional entropy bonus)
 
+
 ---
 
 ## 📊 Experiments & Results
 
-## Reinforce trained & PPO trained
+### REINFORCE vs PPO Trained Agents
 
-### Typical Training Curves
+**REINFORCE trained agent:**
 
+![REINFORCE Trained](assets/reinforce_trained-2026-03-04_21.53.17.gif)
+
+**PPO trained agent:**
+
+![PPO Trained](assets/ppo_trained-2026-03-04_21.32.07.gif)
+
+Both agents successfully learn to control the ball and knock down pins. PPO typically converges faster with more stable training dynamics compared to vanilla REINFORCE, which exhibits higher variance during learning.
+
+### Algorithm Performance Comparison
+
+![PPO vs REINFORCE](assets/PPO_VS_REINFORCE.jpg)
+
+PPO achieves higher cumulative reward performance on the same training horizon.
+
+---
+
+#### Total Return
+
+![PPO Total Return](assets/PPO_RETURN.jpg)
+
+Total return with default hyperparameters.
+
+
+### PPO Hyperparameter Tuning Study
+
+We conducted several hyperparameter tuning experiments to investigate their effects on PPO training.
+
+#### Epochs Per Batch
+
+![PPO Epochs](assets/PPO_per_epoch.jpg)
+
+Different numbers of gradient steps per batch. More optimization epochs make training smoother and result in higher final returns.
+
+#### Mini-Batch Size
+
+![PPO Mini-Batches](assets/PPO_minibatches.jpg)
+
+Effect of mini-batch count. Larger mini-batches (10+) produce less noisy training but slower convergence, while fewer mini-batches (1-2) enable faster training.
+
+#### Clipping Range (ε)
+
+![PPO Clipping Range](assets/PPO_per_clip.jpg)
+
+Effect of clipping parameter. The standard value ε = 0.2 provides a compromise between ε = 0.5 (noisy but fast growth) and ε = 0.005 (smooth but slow growth).
 
 ---
 

@@ -17,12 +17,12 @@ class PolicyNetwork(nn.Module):
         super().__init__()
 
         # CNN
-        self.conv1 = nn.Conv2d(1, 16, kernel_size=8, stride=4, padding=0)
-        self.conv2 = nn.Conv2d(16, 32, kernel_size=4, stride=2, padding=0)
+        self.conv1 = nn.Conv2d(1, 8, kernel_size=3, stride=1, padding=0)
+        self.conv2 = nn.Conv2d(8, 1, kernel_size=2, stride=1, padding=0)
         self.relu = nn.ReLU()
 
         # MLP
-        self.fc1 = nn.Linear(2592, 256)
+        self.fc1 = nn.Linear(6561, 256)
         self.fc2 = nn.Linear(256, 6)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:

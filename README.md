@@ -23,3 +23,6 @@ uv run main.py train --episodes 50 --gamma 0.98 --lr 0.001
 
 # Просмотр 
 uv run main.py eval --checkpoint checkpoints/policy_reinforce_ep100_gamma0.98_lr3e-03.pt --episodes 5
+
+
+uv run main.py train --algorithm ppo --episodes 100000 --n-envs 200 ...

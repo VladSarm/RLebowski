@@ -173,9 +173,9 @@ Notation follows standard REINFORCE lecture style. Random variables are denoted 
 - Environment: $S_{t+1} \sim p(\cdot\mid S_t, A_t)$
 - Policy: $A_t \sim \pi^{\theta}(\cdot\mid S_t)$
 - Reward: $R_t \sim p^{R}(\cdot\mid S_t, A_t)$
-- Trajectory: $z_{0:T} = \{(s_0,a_0), (s_1,a_1), \dots, (s_{T-1},a_{T-1})\}$, where $T$ is the length of the episode
+- Trajectory: $z_{0:\tau} = \{(s_0,a_0), (s_1,a_1), \dots, (s_{\tau-1},a_{\tau-1})\}$, where $\tau$ is the length of the episode (time horizon)
 
-The **state-value function** is the expected discounted return starting from state $s$:
+The **value function** is the expected discounted return starting from state $s$:
 
 $$
 V^\theta(s) =
@@ -186,7 +186,7 @@ V^\theta(s) =
 \right]
 $$
 
-The **state–action value function (Q-function)** is the expected discounted return starting from state $s$ and action $a$:
+The **Q-function** is the expected discounted return starting from state $s$ and action $a$:
 
 $$
 Q^\theta(s,a) =
@@ -207,7 +207,7 @@ $$
 ### REINFORCE 
 Policy objective (definition):
 ```math
-J(\theta) = \mathbb{E}_{\pi^\theta}\left[\sum_{t=0}^{T-1} \gamma^t r(S_t, A_t)\right],
+J(\theta) = \mathbb{E}_{\pi^\theta}\left[\sum_{t=0}^{\tau-1} \gamma^t r(S_t, A_t)\right],
 ```
 where $\gamma \in \left[0,1\right]$ is the discount factor.
 
@@ -217,13 +217,13 @@ Gradient estimator:
 =
 \mathbb{E}_{\pi^\theta}
 \left[
-\sum_{t=0}^{T-1}
+\sum_{t=0}^{\tau-1}
 \gamma^t R_t \nabla_\theta \log \pi^\theta (A_t \mid S_t)
 \right]
 ```
 where
 ```math
-R_t = \sum_{k=t}^{T-1} \gamma^{k-t} r(S_k, A_k).
+R_t = \sum_{k=t}^{\tau-1} \gamma^{k-t} r(S_k, A_k).
 ```
 
 The idea is to perform gradient ascent
@@ -246,7 +246,7 @@ The (statistical) surrogate objective in PPO reads:
 
 ```math
 \hat{L}_{\text{PPO}} :=
-\mathbb{E}_{T \sim \mathrm{Unif}[0, T_{\text{fin}} - 1]}
+\mathbb{E}_{T \sim \mathrm{Unif}[0, \tau_{\text{b}} - 1]}
 \left[
 \min \left\{
 \frac{\pi_{\text{new}}(a_T \mid s_T)}{\pi_{\text{old}}(a_T \mid s_T)}
@@ -264,6 +264,9 @@ A^{\pi_{\text{old}}}(s_T, a_T)
 where:
 - $A^{\pi_{\text{old}}}(s_T, a_T)$ is the advantage estimate
 - $\epsilon$ is the clipping range (typically 0.1 to 0.2)
+- $\tau_b$  is a mini-batch size, not necessarily equal  $\tau$
+
+As can be seen, both the surrogate objectives in PPO requires the advantage function. In practice, neither the value function, nor Q-function, nor advantage function is known. So, we use the advantage estimate.
 
 **Advantages:**
 - Lower variance through importance sampling.

@@ -12,10 +12,10 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.ba
 
 policy = mlp.PolicyNetwork().to(DEVICE)
 env = bowling_env.BowlingThrowEnv()  # kept for eval in main.py
-optimizer = torch.optim.Adam(policy.parameters(), lr=1e-2)
+optimizer = torch.optim.Adam(policy.parameters(), lr=1e-3)
 gamma = 0.999
 ppo_clip_epsilon = 0.2
-ppo_update_epochs = 5
+ppo_update_epochs = 10
 ppo_num_mini_batches = 2
 
 
@@ -31,7 +31,7 @@ class _NumpyEnv(gym.Env):
 
     def __init__(self):
         self._env = bowling_env.BowlingThrowEnv()
-        self.observation_space = spaces.Box(0.0, 1.0, (1, 84, 84), dtype=np.float32)
+        self.observation_space = spaces.Box(0.0, 1.0, bowling_env.OBS_SHAPE, dtype=np.float32)
         self.action_space = self._env.action_space
 
     def reset(self, **kwargs):
@@ -65,7 +65,7 @@ def _rollout_async(vec_env, n_envs):
     Returns:
       obs_per_env, actions_per_env, old_log_probs_per_env, rewards_per_env, steps_per_env
     """
-    obs_np, _ = vec_env.reset()                      # (n_envs, 1, 84, 84) float32
+    obs_np, _ = vec_env.reset()                      # (n_envs, 1, 75, 160) float32
 
     active = np.ones(n_envs, dtype=bool)
     obs_per = [[] for _ in range(n_envs)]

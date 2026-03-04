@@ -2,7 +2,7 @@
 BowlingThrowEnv — one episode = полная игра в боулинг.
 
 Задача: просто обернуть ALE Bowling так, чтобы:
-  - наблюдения были preprocessed в (1, 84, 84) тензор;
+  - наблюдения были preprocessed в ROI-тензор (1, 75, 160);
   - эпизод длился до конца игры (10 фреймов и т.п.), как решает сам симулятор;
   - награда бралась напрямую из ALE, без дополнительного shaping.
 """
@@ -11,7 +11,6 @@ import gymnasium as gym
 import ale_py
 import numpy as np
 import torch
-from PIL import Image
 
 gym.register_envs(ale_py)
 
@@ -24,15 +23,16 @@ DOWNFIRE = 5
 
 _FIRE_ACTIONS = {FIRE, UPFIRE, DOWNFIRE}
 _MAX_EPISODE_STEPS = 10_000  # защитный лимит, на нормальную игру не влияет
+ROI_TOP = 100
+ROI_BOTTOM = 175
+ROI_CHANNEL = 2
+OBS_SHAPE = (1, ROI_BOTTOM - ROI_TOP, 160)  # (1, 75, 160)
 
 
 def preprocess(frame: np.ndarray) -> torch.Tensor:
-    gray = np.dot(frame[..., :3], [0.299, 0.587, 0.114]).astype(np.uint8)
-    arr = np.array(
-        Image.fromarray(gray).resize((84, 84), Image.BILINEAR),
-        dtype=np.float32,
-    ) / 255.0
-    return torch.from_numpy(arr).unsqueeze(0)
+    # Keep only the region of interest from a single color channel.
+    roi = frame[ROI_TOP:ROI_BOTTOM, :, ROI_CHANNEL].astype(np.float32) / 255.0
+    return torch.from_numpy(np.ascontiguousarray(roi)).unsqueeze(0)
 
 
 class BowlingThrowEnv(gym.Wrapper):

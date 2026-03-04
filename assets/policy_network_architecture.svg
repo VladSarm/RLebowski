@@ -1,0 +1,203 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1120 520" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif">
+  <defs>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0f1724"/>
+      <stop offset="100%" stop-color="#1a2537"/>
+    </linearGradient>
+    <linearGradient id="inputGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#3b82f6"/>
+      <stop offset="100%" stop-color="#2563eb"/>
+    </linearGradient>
+    <linearGradient id="convGrad1" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#8b5cf6"/>
+      <stop offset="100%" stop-color="#7c3aed"/>
+    </linearGradient>
+    <linearGradient id="convGrad2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#a855f7"/>
+      <stop offset="100%" stop-color="#9333ea"/>
+    </linearGradient>
+    <linearGradient id="fcGrad1" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#d97706"/>
+    </linearGradient>
+    <linearGradient id="fcGrad2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ef4444"/>
+      <stop offset="100%" stop-color="#dc2626"/>
+    </linearGradient>
+    <linearGradient id="outGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#10b981"/>
+      <stop offset="100%" stop-color="#059669"/>
+    </linearGradient>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#000" flood-opacity="0.35"/>
+    </filter>
+    <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#64748b"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1120" height="520" rx="16" fill="url(#bgGrad)"/>
+
+  <!-- Title -->
+  <text x="560" y="38" text-anchor="middle" fill="#e2e8f0" font-size="18" font-weight="700" letter-spacing="0.5">PolicyNetwork — Architecture</text>
+  <text x="560" y="58" text-anchor="middle" fill="#64748b" font-size="12" letter-spacing="0.3">CNN + MLP  ·  input: ROI frame  ·  output: 6 action logits</text>
+
+  <!-- Section labels -->
+  <text x="280" y="88" text-anchor="middle" fill="#8b5cf6" font-size="11" font-weight="600" letter-spacing="1" opacity="0.8">CONVOLUTIONAL BLOCK (CNN)</text>
+  <text x="770" y="88" text-anchor="middle" fill="#f59e0b" font-size="11" font-weight="600" letter-spacing="1" opacity="0.8">FULLY CONNECTED BLOCK (MLP)</text>
+
+  <!-- Divider -->
+  <line x1="520" y1="78" x2="520" y2="490" stroke="#334155" stroke-width="1" stroke-dasharray="6,4" opacity="0.5"/>
+
+  <!-- Arrows -->
+  <line x1="134" y1="275" x2="170" y2="275" stroke="#64748b" stroke-width="1.8" marker-end="url(#arrowhead)"/>
+  <line x1="312" y1="275" x2="348" y2="275" stroke="#64748b" stroke-width="1.8" marker-end="url(#arrowhead)"/>
+  <line x1="490" y1="275" x2="546" y2="275" stroke="#64748b" stroke-width="1.8" marker-end="url(#arrowhead)"/>
+  <line x1="604" y1="275" x2="640" y2="275" stroke="#64748b" stroke-width="1.8" marker-end="url(#arrowhead)"/>
+  <line x1="782" y1="275" x2="818" y2="275" stroke="#64748b" stroke-width="1.8" marker-end="url(#arrowhead)"/>
+  <line x1="960" y1="275" x2="996" y2="275" stroke="#64748b" stroke-width="1.8" marker-end="url(#arrowhead)"/>
+
+  <!-- INPUT -->
+  <g filter="url(#shadow)">
+    <rect x="28" y="195" width="106" height="160" rx="10" fill="url(#inputGrad)" opacity="0.9"/>
+  </g>
+  <text x="81" y="258" text-anchor="middle" fill="#fff" font-size="13" font-weight="700">Input</text>
+  <text x="81" y="278" text-anchor="middle" fill="#dbeafe" font-size="10" opacity="0.9">ROI frame</text>
+  <rect x="40" y="370" width="82" height="22" rx="6" fill="#1e3a5f" stroke="#3b82f6" stroke-width="0.8"/>
+  <text x="81" y="385" text-anchor="middle" fill="#93c5fd" font-size="10" font-weight="600">1 × 75 × 160</text>
+  <text x="81" y="405" text-anchor="middle" fill="#64748b" font-size="9">C × H × W</text>
+
+  <!-- CONV1 -->
+  <g filter="url(#shadow)">
+    <rect x="178" y="168" width="134" height="214" rx="10" fill="#1e1b3a" stroke="#8b5cf6" stroke-width="1.2"/>
+  </g>
+  <rect x="178" y="168" width="134" height="32" rx="10" fill="url(#convGrad1)"/>
+  <rect x="178" y="188" width="134" height="12" fill="url(#convGrad1)"/>
+  <text x="245" y="190" text-anchor="middle" fill="#fff" font-size="12" font-weight="700">Conv2d + ReLU</text>
+  <text x="245" y="222" text-anchor="middle" fill="#c4b5fd" font-size="10">filters: 16</text>
+  <text x="245" y="240" text-anchor="middle" fill="#c4b5fd" font-size="10">kernel: 3 × 3</text>
+  <text x="245" y="258" text-anchor="middle" fill="#c4b5fd" font-size="10">stride: 2</text>
+  <text x="245" y="276" text-anchor="middle" fill="#c4b5fd" font-size="10">padding: 2</text>
+  <!-- Kernel 3x3 vis -->
+  <g transform="translate(218, 288)">
+    <rect x="0" y="0" width="14" height="14" rx="2" fill="#7c3aed" opacity="0.5" stroke="#a78bfa" stroke-width="0.5"/>
+    <rect x="16" y="0" width="14" height="14" rx="2" fill="#7c3aed" opacity="0.5" stroke="#a78bfa" stroke-width="0.5"/>
+    <rect x="32" y="0" width="14" height="14" rx="2" fill="#7c3aed" opacity="0.5" stroke="#a78bfa" stroke-width="0.5"/>
+    <rect x="0" y="16" width="14" height="14" rx="2" fill="#7c3aed" opacity="0.5" stroke="#a78bfa" stroke-width="0.5"/>
+    <rect x="16" y="16" width="14" height="14" rx="2" fill="#7c3aed" opacity="0.7" stroke="#a78bfa" stroke-width="0.5"/>
+    <rect x="32" y="16" width="14" height="14" rx="2" fill="#7c3aed" opacity="0.5" stroke="#a78bfa" stroke-width="0.5"/>
+    <rect x="0" y="32" width="14" height="14" rx="2" fill="#7c3aed" opacity="0.5" stroke="#a78bfa" stroke-width="0.5"/>
+    <rect x="16" y="32" width="14" height="14" rx="2" fill="#7c3aed" opacity="0.5" stroke="#a78bfa" stroke-width="0.5"/>
+    <rect x="32" y="32" width="14" height="14" rx="2" fill="#7c3aed" opacity="0.5" stroke="#a78bfa" stroke-width="0.5"/>
+  </g>
+  <text x="245" y="342" text-anchor="middle" fill="#7c3aed" font-size="9" opacity="0.7">kernel 3×3</text>
+  <rect x="186" y="370" width="118" height="22" rx="6" fill="#2e1a4a" stroke="#8b5cf6" stroke-width="0.8"/>
+  <text x="245" y="385" text-anchor="middle" fill="#c4b5fd" font-size="10" font-weight="600">16 × 39 × 81</text>
+  <text x="245" y="405" text-anchor="middle" fill="#64748b" font-size="9">C × H × W</text>
+
+  <!-- CONV2 -->
+  <g filter="url(#shadow)">
+    <rect x="356" y="180" width="134" height="190" rx="10" fill="#1e1b3a" stroke="#a855f7" stroke-width="1.2"/>
+  </g>
+  <rect x="356" y="180" width="134" height="32" rx="10" fill="url(#convGrad2)"/>
+  <rect x="356" y="200" width="134" height="12" fill="url(#convGrad2)"/>
+  <text x="423" y="202" text-anchor="middle" fill="#fff" font-size="12" font-weight="700">Conv2d + ReLU</text>
+  <text x="423" y="234" text-anchor="middle" fill="#d8b4fe" font-size="10">filters: 5</text>
+  <text x="423" y="252" text-anchor="middle" fill="#d8b4fe" font-size="10">kernel: 2 × 2</text>
+  <text x="423" y="270" text-anchor="middle" fill="#d8b4fe" font-size="10">stride: 1</text>
+  <text x="423" y="288" text-anchor="middle" fill="#d8b4fe" font-size="10">padding: 0</text>
+  <!-- Kernel 2x2 vis -->
+  <g transform="translate(406, 298)">
+    <rect x="0" y="0" width="14" height="14" rx="2" fill="#9333ea" opacity="0.5" stroke="#c084fc" stroke-width="0.5"/>
+    <rect x="16" y="0" width="14" height="14" rx="2" fill="#9333ea" opacity="0.5" stroke="#c084fc" stroke-width="0.5"/>
+    <rect x="0" y="16" width="14" height="14" rx="2" fill="#9333ea" opacity="0.5" stroke="#c084fc" stroke-width="0.5"/>
+    <rect x="16" y="16" width="14" height="14" rx="2" fill="#9333ea" opacity="0.7" stroke="#c084fc" stroke-width="0.5"/>
+  </g>
+  <text x="423" y="342" text-anchor="middle" fill="#9333ea" font-size="9" opacity="0.7">kernel 2×2</text>
+  <rect x="364" y="370" width="118" height="22" rx="6" fill="#2e1a4a" stroke="#a855f7" stroke-width="0.8"/>
+  <text x="423" y="385" text-anchor="middle" fill="#d8b4fe" font-size="10" font-weight="600">5 × 38 × 80</text>
+  <text x="423" y="405" text-anchor="middle" fill="#64748b" font-size="9">C × H × W</text>
+
+  <!-- FLATTEN -->
+  <g filter="url(#shadow)">
+    <rect x="554" y="240" width="50" height="70" rx="8" fill="#1e293b" stroke="#475569" stroke-width="1"/>
+  </g>
+  <text x="579" y="269" text-anchor="middle" fill="#94a3b8" font-size="9" font-weight="600">Flat-</text>
+  <text x="579" y="281" text-anchor="middle" fill="#94a3b8" font-size="9" font-weight="600">ten</text>
+  <text x="579" y="298" text-anchor="middle" fill="#64748b" font-size="8">reshape</text>
+  <rect x="548" y="370" width="62" height="22" rx="6" fill="#1e293b" stroke="#475569" stroke-width="0.8"/>
+  <text x="579" y="385" text-anchor="middle" fill="#94a3b8" font-size="10" font-weight="600">15200</text>
+  <text x="579" y="405" text-anchor="middle" fill="#64748b" font-size="9">features</text>
+
+  <!-- FC1 -->
+  <g filter="url(#shadow)">
+    <rect x="648" y="210" width="134" height="130" rx="10" fill="#1f1a0e" stroke="#f59e0b" stroke-width="1.2"/>
+  </g>
+  <rect x="648" y="210" width="134" height="32" rx="10" fill="url(#fcGrad1)"/>
+  <rect x="648" y="230" width="134" height="12" fill="url(#fcGrad1)"/>
+  <text x="715" y="232" text-anchor="middle" fill="#fff" font-size="12" font-weight="700">Linear + ReLU</text>
+  <text x="715" y="264" text-anchor="middle" fill="#fcd34d" font-size="10">in: 15200</text>
+  <text x="715" y="282" text-anchor="middle" fill="#fcd34d" font-size="10">out: 512</text>
+  <g transform="translate(680, 296)">
+    <circle cx="4" cy="4" r="3" fill="#f59e0b" opacity="0.5"/>
+    <circle cx="16" cy="4" r="3" fill="#f59e0b" opacity="0.6"/>
+    <circle cx="28" cy="4" r="3" fill="#f59e0b" opacity="0.7"/>
+    <circle cx="40" cy="4" r="3" fill="#f59e0b" opacity="0.5"/>
+    <circle cx="52" cy="4" r="3" fill="#f59e0b" opacity="0.6"/>
+    <circle cx="64" cy="4" r="3" fill="#f59e0b" opacity="0.4"/>
+  </g>
+  <text x="715" y="316" text-anchor="middle" fill="#92400e" font-size="8">512 neurons</text>
+  <rect x="680" y="370" width="70" height="22" rx="6" fill="#2e1f0a" stroke="#f59e0b" stroke-width="0.8"/>
+  <text x="715" y="385" text-anchor="middle" fill="#fcd34d" font-size="10" font-weight="600">512</text>
+  <text x="715" y="405" text-anchor="middle" fill="#64748b" font-size="9">features</text>
+
+  <!-- FC2 -->
+  <g filter="url(#shadow)">
+    <rect x="826" y="220" width="134" height="110" rx="10" fill="#1f0e0e" stroke="#ef4444" stroke-width="1.2"/>
+  </g>
+  <rect x="826" y="220" width="134" height="32" rx="10" fill="url(#fcGrad2)"/>
+  <rect x="826" y="240" width="134" height="12" fill="url(#fcGrad2)"/>
+  <text x="893" y="242" text-anchor="middle" fill="#fff" font-size="12" font-weight="700">Linear</text>
+  <text x="893" y="274" text-anchor="middle" fill="#fca5a5" font-size="10">in: 512</text>
+  <text x="893" y="292" text-anchor="middle" fill="#fca5a5" font-size="10">out: 6</text>
+  <g transform="translate(870, 304)">
+    <circle cx="4" cy="4" r="3" fill="#ef4444" opacity="0.5"/>
+    <circle cx="16" cy="4" r="3" fill="#ef4444" opacity="0.6"/>
+    <circle cx="28" cy="4" r="3" fill="#ef4444" opacity="0.7"/>
+    <circle cx="40" cy="4" r="3" fill="#ef4444" opacity="0.5"/>
+  </g>
+  <rect x="862" y="370" width="62" height="22" rx="6" fill="#2e0e0e" stroke="#ef4444" stroke-width="0.8"/>
+  <text x="893" y="385" text-anchor="middle" fill="#fca5a5" font-size="10" font-weight="600">6</text>
+  <text x="893" y="405" text-anchor="middle" fill="#64748b" font-size="9">logits</text>
+
+  <!-- OUTPUT -->
+  <g filter="url(#shadow)">
+    <rect x="1004" y="225" width="90" height="100" rx="10" fill="url(#outGrad)" opacity="0.9"/>
+  </g>
+  <text x="1049" y="265" text-anchor="middle" fill="#fff" font-size="12" font-weight="700">Softmax</text>
+  <text x="1049" y="285" text-anchor="middle" fill="#d1fae5" font-size="10" opacity="0.9">action</text>
+  <text x="1049" y="300" text-anchor="middle" fill="#d1fae5" font-size="10" opacity="0.9">probabilities</text>
+  <rect x="1014" y="370" width="70" height="22" rx="6" fill="#0a2e1f" stroke="#10b981" stroke-width="0.8"/>
+  <text x="1049" y="385" text-anchor="middle" fill="#6ee7b7" font-size="10" font-weight="600">6</text>
+  <text x="1049" y="405" text-anchor="middle" fill="#64748b" font-size="9">P(action)</text>
+
+  <!-- LEGEND -->
+  <g transform="translate(30, 440)">
+    <rect x="0" y="0" width="1060" height="50" rx="8" fill="#0f1724" stroke="#1e293b" stroke-width="1"/>
+    <circle cx="30" cy="25" r="6" fill="#3b82f6"/>
+    <text x="44" y="29" fill="#94a3b8" font-size="10">Input</text>
+    <circle cx="110" cy="25" r="6" fill="#8b5cf6"/>
+    <text x="124" y="29" fill="#94a3b8" font-size="10">Convolution (Conv2d)</text>
+    <rect x="280" y="19" width="12" height="12" rx="3" fill="#475569"/>
+    <text x="300" y="29" fill="#94a3b8" font-size="10">Flatten</text>
+    <circle cx="380" cy="25" r="6" fill="#f59e0b"/>
+    <text x="394" y="29" fill="#94a3b8" font-size="10">Fully Connected (Linear)</text>
+    <circle cx="590" cy="25" r="6" fill="#ef4444"/>
+    <text x="604" y="29" fill="#94a3b8" font-size="10">Output Layer</text>
+    <circle cx="730" cy="25" r="6" fill="#10b981"/>
+    <text x="744" y="29" fill="#94a3b8" font-size="10">Softmax</text>
+    <text x="870" y="29" fill="#64748b" font-size="10">Total params: ≈ 7.8 M</text>
+  </g>
+
+</svg>

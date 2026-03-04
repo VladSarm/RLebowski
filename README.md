@@ -84,21 +84,11 @@ def preprocess(frame: np.ndarray) -> torch.Tensor:
     return torch.from_numpy(np.ascontiguousarray(roi)).unsqueeze(0)
 ```
 
-### 🔍 CNN Feature Extraction
+### 🔍 CNN + MLP Policy Network
 
-```
-(batch, 1, 75, 160)
-      ↓  Conv2d(1→16, k=3, s=2, p=2) + ReLU
-(batch, 16, 39, 81)
-      ↓  Conv2d(16→5, k=2, s=1) + ReLU
-(batch, 5, 38, 80)
-      ↓  Flatten
-(batch, 15200)
-      ↓  Linear(15200→512) + ReLU → Linear(512→6)
-      ↓  Softmax → π(a|s)
-```
+![Policy Network Architecture](assets/policy_network_architecture.svg)
 
-CNN learns spatial features (ball edge, pin positions) and provides translation invariance — the same pin pattern is recognized regardless of its exact lane position.
+CNN learns spatial features (ball edge, pin positions) and provides translation invariance — the same pin pattern is recognized regardless of its exact lane position. The MLP head maps the extracted features to action logits.
 
 ---
 
@@ -162,13 +152,6 @@ where $A^{\pi_{\text{old}}}$ is the advantage estimate, $\epsilon$ is the clippi
 
 ## 🏋️ Training
 
-### Network Architecture
-
-```
-Input (1, 75, 160)  →  CNN  →  (15200,)  →  FC(512) + ReLU  →  FC(6)  →  Softmax
-                                                                  ↘ FC(1) → V(s)  [PPO value head]
-```
-
 ### ⚙️ Hyperparameters
 
 | Parameter | Value |
@@ -181,6 +164,22 @@ Input (1, 75, 160)  →  CNN  →  (15200,)  →  FC(512) + ReLU  →  FC(6)  �
 | PPO mini-batches | `2` |
 
 Optimizer: **Adam** (β₁=0.9, β₂=0.999).
+
+Each rollout is split into mini-batches and iterated over for multiple epochs (shuffled each epoch):
+
+```
+Rollout (N samples)
+ ├── MB1
+ ├── MB2
+ ├── MB3
+ └── MB4
+
+Epoch 1:        Epoch 2:
+  MB1 → step      MB3 → step
+  MB2 → step      MB1 → step
+  MB3 → step      MB4 → step
+  MB4 → step      MB2 → step
+```
 
 ---
 
@@ -234,3 +233,7 @@ Total return with default hyperparameters.
 - Williams (1992): *Simple Statistical Gradient-Following Algorithms for Connectionist RL*
 - Sutton & Barto (2018): *Reinforcement Learning: An Introduction*
 - [Gymnasium Documentation](https://gymnasium.farama.org/)
+
+---
+
+📝 **Project prompts:** [PROMPTME.md](PROMPTME.md)

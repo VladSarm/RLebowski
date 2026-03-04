@@ -167,16 +167,69 @@ MLP (15200 → 512 → 6 actions)
 
 ## 📐 Algorithms
 
-### REINFORCE (Monte Carlo Policy Gradient)
+### Notation and Preliminaries
+Notation follows standard REINFORCE lecture style. Random variables are denoted by capital letters, data points by lowercase letters.
+- $\mathbb{S}$ — state space, $s \in \mathbb{S}$ — state; $\mathbb{A}$ — action space, $a \in \mathbb{A}$ — action.
+- Environment: $S_{t+1} \sim p(\cdot\mid S_t, A_t)$
+- Policy: $A_t \sim \pi^{\theta}(\cdot\mid S_t)$
+- Reward: $R_t \sim p^{R}(\cdot\mid S_t, A_t)$
+- Trajectory: $z_{0:T} = \{(s_0,a_0), (s_1,a_1), \dots, (s_{T-1},a_{T-1})\}$, where $T$ is the length of the episode
 
-REINFORCE is a classic policy gradient algorithm that samples full trajectories and updates the policy based on actual returns.
+The **state-value function** is the expected discounted return starting from state $s$:
 
-**Update rule:**
+$$
+V^\theta(s) =
+\mathbb{E}_{\pi^\theta}
+\left[
+\sum_{t=0}^{\infty} \gamma^t R_t
+\mid S_0 = s
+\right]
+$$
+
+The **state–action value function (Q-function)** is the expected discounted return starting from state $s$ and action $a$:
+
+$$
+Q^\theta(s,a) =
+\mathbb{E}_{\pi^\theta}
+\left[
+\sum_{t=0}^{\infty} \gamma^t R_t
+\mid S_0 = s, A_0 = a
+\right]
+$$
+
+The **advantage function** measures how much better action $a$ is compared to the average action at state $s$:
+
+$$
+A^\theta(s,a) = Q^\theta(s,a) - V^\theta(s)
+$$
+
+
+### REINFORCE 
+Policy objective (definition):
+```math
+J(\theta) = \mathbb{E}_{\pi^\theta}\left[\sum_{t=0}^{T-1} \gamma^t r(S_t, A_t)\right],
 ```
-θ ← θ + α ∇_θ log π_θ(a|s) · G_t
+where $\gamma \in \left[0,1\right]$ is the discount factor.
+
+Gradient estimator:
+```math
+\nabla_\theta J(\theta)
+=
+\mathbb{E}_{\pi^\theta}
+\left[
+\sum_{t=0}^{T-1}
+\gamma^t R_t \nabla_\theta \log \pi^\theta (A_t \mid S_t)
+\right]
+```
+where
+```math
+R_t = \sum_{k=t}^{T-1} \gamma^{k-t} r(S_k, A_k).
 ```
 
-where `G_t = Σ_{k=t}^T γ^{k-t} r_k` is the discounted return from step t.
+The idea is to perform gradient ascent
+```math
+\theta \longleftarrow \theta + \alpha \cdot \nabla_\theta J(\theta)
+```
 
 **Pros:**
 - Unbiased gradient estimates.
@@ -185,32 +238,37 @@ where `G_t = Σ_{k=t}^T γ^{k-t} r_k` is the discounted return from step t.
 **Cons:**
 - High variance in gradient updates (sample inefficient).
 - Can have unstable training curves.
-- Single trajectory used per update.
 
 ### PPO (Proximal Policy Optimization)
+Proximal policy optimization (PPO) is an advanced tweak of TRPO that employs policy PDF ratio and surrogate objective **clipping** instead of constraints or penalties.
 
-PPO improves upon vanilla policy gradients using a clipped objective to prevent destructively large policy updates.
+The (statistical) surrogate objective in PPO reads:
 
-**Clipped objective:**
-```
-L^CLIP(θ) = E[ min(r_t(θ) A_t, clip(r_t(θ), 1-ε, 1+ε) A_t) ]
-```
+$$
+\hat{L}_{\text{PPO}} :=
+\mathbb{E}_{T \sim \mathrm{Unif}[0, T_{\text{fin}} - 1]}
+\left[
+\min \left\{
+\frac{\pi_{\text{new}}(a_T \mid s_T)}{\pi_{\text{old}}(a_T \mid s_T)}
+A^{\pi_{\text{old}}}(s_T, a_T),
+\;
+\mathrm{Clip}_{1-\epsilon}^{1+\epsilon}
+\left(
+\frac{\pi_{\text{new}}(a_T \mid s_T)}{\pi_{\text{old}}(a_T \mid s_T)}
+\right)
+A^{\pi_{\text{old}}}(s_T, a_T)
+\right\}
+\right]
+$$
 
 where:
-- `r_t(θ) = π_θ(a|s) / π_{θ_old}(a|s)` is the probability ratio.
-- `A_t` is the advantage estimate (with learned baseline).
-- `ε` is the clipping range (typically 0.1 to 0.2).
+- $A^\theta(s,a) \triangleq Q^\theta(s,a) - V^\theta(s)$ is the advantage estimate
+- $\epsilon$ is the clipping range (typically 0.1 to 0.2)
 
 **Advantages:**
-- Lower variance through importance sampling + baseline.
+- Lower variance through importance sampling.
 - Clipping prevents overshooting; stable updates.
-- Reuses data (multiple epochs per batch).
 - Often converges faster and more reliably.
-
-**In our implementation:**
-- Value network (critic) learns `V(s)` to estimate returns.
-- Advantage: `A_t = G_t - V(s_t)`.
-- Multiple passes over batch with mini-batch updates.
 
 ---
 

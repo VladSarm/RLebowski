@@ -244,7 +244,7 @@ Proximal policy optimization (PPO) is an advanced tweak of TRPO that employs pol
 
 The (statistical) surrogate objective in PPO reads:
 
-$$
+```math
 \hat{L}_{\text{PPO}} :=
 \mathbb{E}_{T \sim \mathrm{Unif}[0, T_{\text{fin}} - 1]}
 \left[
@@ -259,10 +259,10 @@ A^{\pi_{\text{old}}}(s_T, a_T),
 A^{\pi_{\text{old}}}(s_T, a_T)
 \right\}
 \right]
-$$
+```
 
 where:
-- $A^\theta(s,a) \triangleq Q^\theta(s,a) - V^\theta(s)$ is the advantage estimate
+- $A^{\pi_{\text{old}}}(s_T, a_T)$ is the advantage estimate
 - $\epsilon$ is the clipping range (typically 0.1 to 0.2)
 
 **Advantages:**

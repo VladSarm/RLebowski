@@ -1,17 +1,17 @@
 ### TRPO Mathematical Implementation Details
 
-#### 1. Network Architectures
+<!-- #### 1. Network Architectures -->
 
-**Actor (Policy Network)**  
+<!-- **Actor (Policy Network)**   -->
 <!-- TODO: which version to use? -->
-3‑layer MLP (2 hidden layers, 128 units each, tanh activations) producing action logits:
+<!-- 3‑layer MLP (2 hidden layers, 128 units each, tanh activations) producing action logits:
 
 $$h^{(1)} = \tanh(s_t w_1 + b_1)$$
 $$h^{(2)} = \tanh(h^{(1)} w_2 + b_2)$$
 $$z = h^{(2)} w_3 + b_3$$
-$$A_t \sim \pi^\theta(\bullet|S_t) = \text{Categorical}(\text{softmax}(z))$$
+$$A_t \sim \pi^\theta(\bullet|S_t) = \text{Categorical}(\text{softmax}(z))$$ -->
 
-**Value function estimation**
+#### 1.  Value function estimation
 1) **Baseline (Non‑TD)**  
 Discounted empirical returns (no neural net):
 
@@ -21,7 +21,7 @@ $$g_t = r_t + \gamma(1-d_t)g_{t+1}$$
 
 $$\hat{A}_t = g_t - b_{\text{prev}}$$
 
-2) **Value Network**  
+<!-- 2) **Value Network**  
 Linear value function:
 
 $$v^w(s_t) = s_t w_v + b_v$$
@@ -32,7 +32,7 @@ $$v^w(s_t) = s_t w_v + b_v$$
 
 $$\delta_t = r_t + \gamma v^w(s_{t+1}) - v^w(s_t)$$
 $$\hat{A}_t = \sum_{l=0}^{N_T} (\gamma \lambda)^l \delta_{t+l}$$
-$$\hat{A}_t \leftarrow \frac{\hat{A}_t - \mu(\hat{A})}{\sigma(\hat{A}) + \epsilon}$$
+$$\hat{A}_t \leftarrow \frac{\hat{A}_t - \mu(\hat{A})}{\sigma(\hat{A}) + \epsilon}$$ -->
 
 #### 2. Surrogate Objective
 

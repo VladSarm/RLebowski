@@ -335,6 +335,8 @@ Both algorithms use:
 
 ## 📊 Experiments & Results
 
+## Reinforce trained & PPO trained
+
 ### Typical Training Curves
 
 

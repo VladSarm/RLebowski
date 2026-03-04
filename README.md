@@ -27,7 +27,7 @@ The repository combines:
 
 The project focuses on RL for a visual, procedural control task:
 - **Environment**: Atari Bowling (Gymnasium-based).
-- **Action space**: 18 discrete actions (movement, aim, throw).
+- **Action space**: 6 discrete actions (movement, aim, throw).
 - **State**: Raw pixel observations (84×84×4 with frame stacking).
 - **Policy**: Multi-layer perceptron with configurable hidden layers.
 - **Algorithms**: PPO (Proximal Policy Optimization) and REINFORCE (policy gradient).

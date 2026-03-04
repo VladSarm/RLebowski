@@ -1,115 +1,82 @@
 # 🎳 RLebowski
 
-> **RLebowski** is a reinforcement learning research project for mastering **Atari Bowling** with modern policy gradient algorithms.
+> *"This is not 'Nam. This is bowling. There are rules."* — Walter Sobchak
+
+**RLebowski** is a reinforcement learning project for mastering **Atari Bowling** with policy gradient algorithms — REINFORCE and PPO.
 
 The repository combines:
-- a **Gymnasium environment wrapper** for Atari Bowling,
+- a **Gymnasium environment wrapper** for Atari Bowling (`ALE/Bowling-v5`),
 - policy-gradient training with **PPO** and **REINFORCE**,
-- PyTorch-based policy networks and optimization,
+- **CNN + MLP** policy network trained end-to-end in PyTorch,
 - TensorBoard integration for experiment tracking.
 
 📌 **Installation, commands, and run instructions:** see [RUNME.md](RUNME.md).
 
-### Trained Agent in Action
+### 🎬 Trained Agent in Action
 
 ![Trained REINFORCE Agent](assets/reinforce_trained-2026-03-04_21.53.17.gif)
 
 ---
 
 ## 📑 Table of Contents
-1. [Project Overview](#project-overview)
-2. [Why Bowling Is Interesting](#why-bowling-is-interesting)
-3. [Algorithms](#algorithms)
-4. [Environment & State Space](#environment--state-space)
-5. [Training](#training)
-6. [Experiments & Results](#experiments--results)
-7. [Current Limitations](#current-limitations)
+1. [Project Overview](#-project-overview)
+2. [Simulator & Environment](#-simulator--environment)
+3. [Image Processing Pipeline](#%EF%B8%8F-image-processing-pipeline)
+4. [Algorithms](#-algorithms)
+5. [Training](#-training)
+6. [Experiments & Results](#-experiments--results)
 
 ---
 
 ## 🧩 Project Overview
 
-The project focuses on RL for a visual, procedural control task:
-- **Environment**: Atari Bowling (Gymnasium-based).
-- **Action space**: 6 discrete actions (movement, aim, throw).
-- **State**: Raw pixel observations (84×84×4 with frame stacking).
-- **Policy**: Multi-layer perceptron with configurable hidden layers.
-- **Algorithms**: PPO (Proximal Policy Optimization) and REINFORCE (policy gradient).
-
-**Main goals:**
-- Implement clean, understandable implementations of PPO and REINFORCE.
-- Achieve stable training on a continuous control task with visual input.
-- Provide infrastructure for experiment tracking (TensorBoard).
-- Demonstrate the practical differences between REINFORCE and PPO convergence.
+- **Environment**: Atari Bowling (`ALE/Bowling-v5`, mode=2).
+- **Action space**: 6 discrete actions — NOOP, FIRE, UP, DOWN, UPFIRE, DOWNFIRE.
+- **Observation**: ROI crop `(1, 75, 160)` from a single color channel.
+- **Policy**: CNN feature extractor + MLP head.
+- **Algorithms**: REINFORCE (Monte Carlo policy gradient) and PPO (Proximal Policy Optimization).
+- **Optimizer**: Adam, lr = `1e-3`, γ = `0.999`.
 
 ---
 
 ## 🎮 Simulator & Environment
 
-![Bowling Gameplay](assets/not_trained-2026-03-04_20.44.34.gif)
+![Untrained Agent](assets/not_trained-2026-03-04_20.44.34.gif)
 
-### Environment Wrapper
+`BowlingThrowEnv` wraps `ALE/Bowling-v5` (mode=2):
+- Episode runs until natural game end (10 frames).
+- Observations preprocessed to ROI tensors before being passed to the policy.
 
-The `BowlingThrowEnv` class wraps the Gymnasium Atari Bowling environment (`ALE/Bowling-v5`):
-- Uses **mode=2** for the Bowling variant.
-- ROI (Region of Interest) preprocessing: extracts the relevant game area from raw frames.
-- Episode runs naturally until game completion (auto-termination by Bowling rules).
-- All observations converted to torch tensors for GPU batch processing.
+### 🕹️ Action Space
 
-### State and Observation Format
-
-- **Raw Atari output**: 210×160×3 RGB images per frame.
-- **ROI extraction**: Crops rows 100–175 from a single color channel (channel 2).
-- **Preprocessed state**: Shape `(1, 75, 160)` — single channel, height 75, width 160.
-- **Network input**: Flattened to `1 * 75 * 160 = 12000` features.
-
-The ROI captures the bowling lane and ball trajectory, removing irrelevant screen areas.
-
-### Action Space (6 actions)
-
-| Action Index | Meaning |
+| # | Action |
 |---|---|
-| 0 | NOOP (no operation) |
-| 1 | FIRE (release/throw) |
-| 2 | UP (vertical aim up) |
-| 3 | DOWN (vertical aim down) |
-| 4 | UPFIRE (aim up + throw) |
-| 5 | DOWNFIRE (aim down + throw) |
+| 0 | NOOP |
+| 1 | FIRE (throw) |
+| 2 | UP |
+| 3 | DOWN |
+| 4 | UPFIRE |
+| 5 | DOWNFIRE |
 
-No "power level" — just aim (vertical) + throw timing.
+### 💰 Reward Structure
 
-### Reward Structure
-
-- **Base reward**: ALE native score (pins knocked down).
-- **Step penalty**: –0.001 per step (encourages faster solutions).
-- **Strike bonus**: +20 additional reward when strike detected (frame reward ≥ 10).
-- **Episode termination**: Automatic when game ends (10 frames complete in Bowling mode).
+- **Base**: ALE native score (pins knocked down).
+- **Step penalty**: −0.001 per step.
+- **Strike bonus**: +20 when single-step reward ≥ 10.
 
 ---
 
 ## 🖼️ Image Processing Pipeline
 
-### Frame Preprocessing Steps
+Raw Atari frames → single color channel → ROI crop → normalize.
 
-Raw Atari Bowling frames undergo a series of preprocessing steps to extract relevant game information and reduce dimensionality:
+**1. Channel extraction** — take channel 2 from the 210×160×3 RGB frame → `210×160` grayscale.
 
-**1. Color Channel Extraction (Grayscale)**
-- Raw frame: `210×160×3` RGB pixels
-- Extract single channel (blue, channel 2) which best highlights the bowling lane and pins
-- Result: `210×160` grayscale values
+**2. ROI Crop** — rows 100–175 only; removes scoreboard and irrelevant UI:
 
-**2. Region of Interest (ROI) Cropping**
-- Crop rows **100–175** from the grayscale frame
-- Removes score bar at top, irrelevant UI at bottom
-- Focuses on the active bowling lane where ball trajectory and pins are visible
-- Result: `75×160` region (see image below)
+![ROI Example](assets/Picture_crop.jpg)
 
-![ROI Extraction Example](assets/Picture_crop.jpg)
-
-**3. Normalization**
-- Scale pixel values from `[0, 255]` to `[0, 1]` by dividing by 255
-- Improves numerical stability for neural network training
-- Result: `1×75×160` tensor (1 channel, height, width)
+**3. Normalize** — divide by 255 → `(1, 75, 160)` float tensor in [0, 1].
 
 ```python
 def preprocess(frame: np.ndarray) -> torch.Tensor:
@@ -117,119 +84,58 @@ def preprocess(frame: np.ndarray) -> torch.Tensor:
     return torch.from_numpy(np.ascontiguousarray(roi)).unsqueeze(0)
 ```
 
-### Convolutional Feature Extraction
+### 🔍 CNN Feature Extraction
 
-Instead of flattening the `75×160` image directly (12,000 features), we use **CNN layers** to automatically learn spatial features:
-
-**CNN Architecture:**
 ```
-Input:  (batch, 1, 75, 160)  [ROI channel]
-           ↓
-Conv2d(1 → 16, kernel=3×3, stride=2, padding=2)
-           ↓
-    ReLU activation
-           ↓
-Conv2d(16 → 5, kernel=2×2, stride=1, padding=0)
-           ↓
-    ReLU activation
-           ↓
-Output: (batch, 5, 38, 80)  [5 feature maps]
-           ↓
-Flatten to (batch, 15200)
-           ↓
-MLP (15200 → 512 → 6 actions)
+(batch, 1, 75, 160)
+      ↓  Conv2d(1→16, k=3, s=2, p=2) + ReLU
+(batch, 16, 39, 81)
+      ↓  Conv2d(16→5, k=2, s=1) + ReLU
+(batch, 5, 38, 80)
+      ↓  Flatten
+(batch, 15200)
+      ↓  Linear(15200→512) + ReLU → Linear(512→6)
+      ↓  Softmax → π(a|s)
 ```
 
-**Why CNN?**
-- **Spatial locality**: Convolutional filters capture local patterns (ball edge, pin arrangement).
-- **Translation invariance**: Same pin pattern recognized regardless of exact position on lane.
-- **Dimensionality reduction**: Reduce 12,000 raw pixels to 15,200 learned features (compared to full-image MLPs which require more parameters).
-- **Faster training**: Shared weights across spatial regions reduce overfitting.
-
-**Feature Maps:**
-- `Conv1` (16 filters): Detects low-level edges, textures, ball contours
-- `Conv2` (5 filters): Combines low-level features into higher-level patterns (pins, lane structure)
+CNN learns spatial features (ball edge, pin positions) and provides translation invariance — the same pin pattern is recognized regardless of its exact lane position.
 
 ---
 
 ## 📐 Algorithms
 
-### Notation and Preliminaries
-Notation follows standard REINFORCE lecture style. Random variables are denoted by capital letters, data points by lowercase letters.
-- $\mathbb{S}$ — state space, $s \in \mathbb{S}$ — state; $\mathbb{A}$ — action space, $a \in \mathbb{A}$ — action.
-- Environment: $S_{t+1} \sim p(\cdot\mid S_t, A_t)$
-- Policy: $A_t \sim \pi^{\theta}(\cdot\mid S_t)$
-- Reward: $R_t \sim p^{R}(\cdot\mid S_t, A_t)$
-- Trajectory: $z_{0:\tau} = \{(s_0,a_0), (s_1,a_1), \dots, (s_{\tau-1},a_{\tau-1})\}$, where $\tau$ is the length of the episode (time horizon)
+### Notation
+- $\mathbb{S}$, $\mathbb{A}$ — state and action spaces.
+- $S_{t+1} \sim p(\cdot\mid S_t, A_t)$, $\quad A_t \sim \pi^{\theta}(\cdot\mid S_t)$, $\quad R_t \sim p^{R}(\cdot\mid S_t, A_t)$.
+- Trajectory: $z_{0:\tau} = \{(s_0,a_0), \dots, (s_{\tau-1},a_{\tau-1})\}$.
 
-The **value function** is the expected discounted return starting from state $s$:
+**Value, Q, and advantage functions:**
 
-$$
-V^\theta(s) =
-\mathbb{E}_{\pi^\theta}
-\left[
-\sum_{t=0}^{\infty} \gamma^t R_t
-\mid S_0 = s
-\right]
-$$
+$$V^\theta(s) = \mathbb{E}_{\pi^\theta}\!\left[\sum_{t=0}^{\infty} \gamma^t R_t \mid S_0 = s\right], \quad Q^\theta(s,a) = \mathbb{E}_{\pi^\theta}\!\left[\sum_{t=0}^{\infty} \gamma^t R_t \mid S_0{=}s, A_0{=}a\right]$$
 
-The **Q-function** is the expected discounted return starting from state $s$ and action $a$:
+$$A^\theta(s,a) = Q^\theta(s,a) - V^\theta(s)$$
 
-$$
-Q^\theta(s,a) =
-\mathbb{E}_{\pi^\theta}
-\left[
-\sum_{t=0}^{\infty} \gamma^t R_t
-\mid S_0 = s, A_0 = a
-\right]
-$$
+### 🔁 REINFORCE
 
-The **advantage function** measures how much better action $a$ is compared to the average action at state $s$:
-
-$$
-A^\theta(s,a) = Q^\theta(s,a) - V^\theta(s)
-$$
-
-
-### REINFORCE 
-Policy objective (definition):
+Policy objective:
 ```math
-J(\theta) = \mathbb{E}_{\pi^\theta}\left[\sum_{t=0}^{\tau-1} \gamma^t r(S_t, A_t)\right],
-```
-where $\gamma \in \left[0,1\right]$ is the discount factor.
-
-Gradient estimator:
-```math
-\nabla_\theta J(\theta)
-=
-\mathbb{E}_{\pi^\theta}
-\left[
-\sum_{t=0}^{\tau-1}
-\gamma^t R_t \nabla_\theta \log \pi^\theta (A_t \mid S_t)
-\right]
-```
-where
-```math
-R_t = \sum_{k=t}^{\tau-1} \gamma^{k-t} r(S_k, A_k).
+J(\theta) = \mathbb{E}_{\pi^\theta}\left[\sum_{t=0}^{\tau-1} \gamma^t r(S_t, A_t)\right]
 ```
 
-The idea is to perform gradient ascent
+Gradient estimator (gradient ascent on $J$):
+```math
+\nabla_\theta J(\theta) = \mathbb{E}_{\pi^\theta}\!\left[\sum_{t=0}^{\tau-1} \gamma^t R_t \nabla_\theta \log \pi^\theta (A_t \mid S_t)\right], \quad R_t = \sum_{k=t}^{\tau-1} \gamma^{k-t} r(S_k, A_k)
+```
 ```math
 \theta \longleftarrow \theta + \alpha \cdot \nabla_\theta J(\theta)
 ```
 
-**Pros:**
-- Unbiased gradient estimates.
-- Simple implementation and interpretation.
+- ✅ Unbiased gradient estimates, simple implementation.
+- ❌ High variance, sample-inefficient.
 
-**Cons:**
-- High variance in gradient updates (sample inefficient).
-- Can have unstable training curves.
+### 🚀 PPO (Proximal Policy Optimization)
 
-### PPO (Proximal Policy Optimization)
-Proximal policy optimization (PPO) is an advanced tweak of TRPO that employs policy PDF ratio and surrogate objective **clipping** instead of constraints or penalties.
-
-The (statistical) surrogate objective in PPO reads:
+PPO replaces hard TRPO constraints with a **clipped surrogate objective**:
 
 ```math
 \hat{L}_{\text{PPO}} :=
@@ -248,126 +154,83 @@ A^{\pi_{\text{old}}}(s_T, a_T)
 \right]
 ```
 
-where:
-- $A^{\pi_{\text{old}}}(s_T, a_T)$ is the advantage estimate
-- $\epsilon$ is the clipping range (typically 0.1 to 0.2)
-- $\tau_b$  is a mini-batch size, not necessarily equal  $\tau$
+where $A^{\pi_{\text{old}}}$ is the advantage estimate, $\epsilon$ is the clipping range, $\tau_b$ is the mini-batch size. In practice the advantage function is approximated by a learned value baseline.
 
-As can be seen, both the surrogate objectives in PPO requires the advantage function. In practice, neither the value function, nor Q-function, nor advantage function is known. So, we use the advantage estimate.
-
-**Advantages:**
-- Lower variance through importance sampling.
-- Clipping prevents overshooting; stable updates.
-- Often converges faster and more reliably.
+- ✅ Lower variance, clipping prevents destructive updates, data reuse across epochs.
 
 ---
 
-## 📊 Training
+## 🏋️ Training
 
-### Policy Network Architecture
-
-Standard **3-layer MLP**:
+### Network Architecture
 
 ```
-Input (12000 features from flattened 1×75×160 ROI)
-        ↓
-  Dense(12000 → 512)
-        ↓
-      ReLU
-        ↓
-  Dense(512 → 256)
-        ↓
-      ReLU
-        ↓
-  Dense(256 → 6)  [policy head]
-        ↓
-    Softmax
-        ↓
-  π_θ(a|s) [action probabilities over 6 actions]
+Input (1, 75, 160)  →  CNN  →  (15200,)  →  FC(512) + ReLU  →  FC(6)  →  Softmax
+                                                                  ↘ FC(1) → V(s)  [PPO value head]
 ```
 
-For PPO, an additional **value head**:
-```
-  Dense(256 → 1)
-        ↓
-      V(s)  [baseline/value estimate]
-```
+### ⚙️ Hyperparameters
 
-### Hyperparameters
+| Parameter | Value |
+|---|---|
+| Learning rate | `1e-3` |
+| Discount factor γ | `0.999` |
+| Parallel envs | `5` (default) |
+| PPO clip ε | `0.2` |
+| PPO epochs / batch | `10` |
+| PPO mini-batches | `2` |
 
-Default settings from code:
-
-**PPO & REINFORCE:**
-- Learning rate: `1e-3`
-- Discount factor γ: `0.999`
-- Number if envs: `5`
-
-**PPO-specific:**
-- Clipping range ε: `0.2`
-- Optimization epochs: `10` per batch
-- Mini-batches per epoch: `2`
-- Number if envs: `5`
+Optimizer: **Adam** (β₁=0.9, β₂=0.999).
 
 ---
 
 ## 📊 Experiments & Results
 
-### REINFORCE vs PPO Trained Agents
+### REINFORCE vs PPO
 
-**REINFORCE trained agent:**
+| | REINFORCE | PPO |
+|---|---|---|
+| **Variance** | High | Low |
+| **Sample efficiency** | Lower | Higher |
+| **Stability** | Noisy curves | Stable |
 
-![REINFORCE Trained](assets/reinforce_trained-2026-03-04_21.53.17.gif)
+**REINFORCE trained:**
 
-**PPO trained agent:**
+![REINFORCE](assets/reinforce_trained-2026-03-04_21.53.17.gif)
 
-![PPO Trained](assets/ppo_trained-2026-03-04_21.32.07.gif)
+**PPO trained:**
 
-Both agents successfully learn to control the ball and knock down pins. PPO typically converges faster with more stable training dynamics compared to vanilla REINFORCE, which exhibits higher variance during learning.
+![PPO](assets/ppo_trained-2026-03-04_21.32.07.gif)
 
-### Algorithm Performance Comparison
+### 📈 Algorithm Performance
 
 ![PPO vs REINFORCE](assets/PPO_VS_REINFORCE.jpg)
 
-PPO achieves higher cumulative reward performance on the same training horizon.
-
----
-
-#### Total Return
+PPO achieves higher cumulative reward on the same training horizon.
 
 ![PPO Total Return](assets/PPO_RETURN.jpg)
 
 Total return with default hyperparameters.
 
+### 🔬 PPO Hyperparameter Study
 
-### PPO Hyperparameter Tuning Study
-
-We conducted several hyperparameter tuning experiments to investigate their effects on PPO training.
-
-#### Epochs Per Batch
+**Epochs per batch** — more epochs → smoother training and higher final returns:
 
 ![PPO Epochs](assets/PPO_per_epoch.jpg)
 
-Different numbers of gradient steps per batch. More optimization epochs make training smoother and result in higher final returns.
-
-#### Mini-Batch Size
+**Mini-batch size** — fewer mini-batches (1–2) converge faster; more (10+) are less noisy but slower:
 
 ![PPO Mini-Batches](assets/PPO_minibatches.jpg)
 
-Effect of mini-batch count. Larger mini-batches (10+) produce less noisy training but slower convergence, while fewer mini-batches (1-2) enable faster training.
+**Clipping range ε** — ε=0.2 is a compromise between ε=0.5 (noisy, fast) and ε=0.005 (smooth, slow):
 
-#### Clipping Range (ε)
-
-![PPO Clipping Range](assets/PPO_per_clip.jpg)
-
-Effect of clipping parameter. The standard value ε = 0.2 provides a compromise between ε = 0.5 (noisy but fast growth) and ε = 0.005 (smooth but slow growth).
+![PPO Clipping](assets/PPO_per_clip.jpg)
 
 ---
 
 ## 📚 References
 
-- Schulman et al. (2017): *Proximal Policy Optimization Algorithms* ([arXiv](https://arxiv.org/abs/1707.06347))
-- Williams (1992): *Simple Statistical Gradient-Following Algorithms for Connectionist Reinforcement Learning*
-- Sutton & Barto (2018): *Reinforcement Learning: An Introduction* (2nd ed.)
-- Gymnasium Documentation: https://gymnasium.farama.org/
-
----
+- Schulman et al. (2017): *Proximal Policy Optimization Algorithms* ([arXiv:1707.06347](https://arxiv.org/abs/1707.06347))
+- Williams (1992): *Simple Statistical Gradient-Following Algorithms for Connectionist RL*
+- Sutton & Barto (2018): *Reinforcement Learning: An Introduction*
+- [Gymnasium Documentation](https://gymnasium.farama.org/)

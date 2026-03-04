@@ -105,7 +105,7 @@ PPO-specific:
 uv run python main.py train \
   --episodes 100000 \
   --algo ppo \
-  --gamma 0.99 \
+  --gamma 0.999 \
   --lr 1e-3 \
   --seed 42
 ```
@@ -116,7 +116,7 @@ uv run python main.py train \
   --episodes 50000 \
   --algo ppo \
   --n-envs 8 \
-  --gamma 0.99 \
+  --gamma 0.999 \
   --lr 3e-4 \
   --ppo-clip 0.2 \
   --ppo-epochs 10 \
@@ -128,7 +128,7 @@ uv run python main.py train \
 uv run python main.py train \
   --episodes 100000 \
   --algo reinforce \
-  --gamma 0.99 \
+  --gamma 0.999 \
   --lr 1e-4 \
   --n-envs 4
 ```

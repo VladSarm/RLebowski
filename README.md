@@ -237,3 +237,9 @@ Total return with default hyperparameters.
 ---
 
 📝 **Project prompts:** [PROMPTME.md](PROMPTME.md)
+
+---
+
+## 🚀 Extensions
+
+🔗 **TRPO implementation** — see [TRPO dev branch](https://github.com/VladSarm/RLebowski/tree/trpo)

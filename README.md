@@ -100,6 +100,71 @@ No "power level" — just aim (vertical) + throw timing.
 
 ---
 
+## 🖼️ Image Processing Pipeline
+
+### Frame Preprocessing Steps
+
+Raw Atari Bowling frames undergo a series of preprocessing steps to extract relevant game information and reduce dimensionality:
+
+**1. Color Channel Extraction (Grayscale)**
+- Raw frame: `210×160×3` RGB pixels
+- Extract single channel (blue, channel 2) which best highlights the bowling lane and pins
+- Result: `210×160` grayscale values
+
+**2. Region of Interest (ROI) Cropping**
+- Crop rows **100–175** from the grayscale frame
+- Removes score bar at top, irrelevant UI at bottom
+- Focuses on the active bowling lane where ball trajectory and pins are visible
+- Result: `75×160` region (see image below)
+
+![ROI Extraction Example](assets/Picture_crop.jpg)
+
+**3. Normalization**
+- Scale pixel values from `[0, 255]` to `[0, 1]` by dividing by 255
+- Improves numerical stability for neural network training
+- Result: `1×75×160` tensor (1 channel, height, width)
+
+```python
+def preprocess(frame: np.ndarray) -> torch.Tensor:
+    roi = frame[100:175, :, 2].astype(np.float32) / 255.0
+    return torch.from_numpy(np.ascontiguousarray(roi)).unsqueeze(0)
+```
+
+### Convolutional Feature Extraction
+
+Instead of flattening the `75×160` image directly (12,000 features), we use **CNN layers** to automatically learn spatial features:
+
+**CNN Architecture:**
+```
+Input:  (batch, 1, 75, 160)  [ROI channel]
+           ↓
+Conv2d(1 → 16, kernel=3×3, stride=2, padding=2)
+           ↓
+    ReLU activation
+           ↓
+Conv2d(16 → 5, kernel=2×2, stride=1, padding=0)
+           ↓
+    ReLU activation
+           ↓
+Output: (batch, 5, 38, 80)  [5 feature maps]
+           ↓
+Flatten to (batch, 15200)
+           ↓
+MLP (15200 → 512 → 6 actions)
+```
+
+**Why CNN?**
+- **Spatial locality**: Convolutional filters capture local patterns (ball edge, pin arrangement).
+- **Translation invariance**: Same pin pattern recognized regardless of exact position on lane.
+- **Dimensionality reduction**: Reduce 12,000 raw pixels to 15,200 learned features (compared to full-image MLPs which require more parameters).
+- **Faster training**: Shared weights across spatial regions reduce overfitting.
+
+**Feature Maps:**
+- `Conv1` (16 filters): Detects low-level edges, textures, ball contours
+- `Conv2` (5 filters): Combines low-level features into higher-level patterns (pins, lane structure)
+
+---
+
 ## 📐 Algorithms
 
 ### REINFORCE (Monte Carlo Policy Gradient)

@@ -10,6 +10,10 @@ The repository combines:
 
 📌 **Installation, commands, and run instructions:** see [RUNME.md](RUNME.md).
 
+### Trained Agent in Action
+
+![Trained REINFORCE Agent](assets/reinforce_trained-2026-03-04_21.53.17.gif)
+
 ---
 
 ## 📑 Table of Contents
@@ -37,23 +41,6 @@ The project focuses on RL for a visual, procedural control task:
 - Achieve stable training on a continuous control task with visual input.
 - Provide infrastructure for experiment tracking (TensorBoard).
 - Demonstrate the practical differences between REINFORCE and PPO convergence.
-
----
-
-## 💪 Why Bowling Is Interesting
-
-Even for a simplified Atari task, bowling presents real RL challenges:
-
-- **Visual processing**: Agent must interpret raw pixels to determine ball position, lane alignment, and pins.
-- **Continuous control**: Actions are discrete but their effect on ball trajectory is highly non-linear.
-- **Sparse rewards**: Success is sparse — you get a large reward only when you knock down pins.
-- **Exploration-exploitation tradeoff**: Naive exploration (random actions) rarely produces meaningful scores; the agent must learn structured behavior.
-- **Credit assignment**: Understanding which actions in a trajectory led to knocking down distant pins requires temporal reasoning.
-
-From an engineering perspective:
-- Pre-processing raw images for efficient learning.
-- Balancing sample efficiency with computational cost.
-- Stable gradient estimation under batch policy updates.
 
 ---
 
@@ -321,16 +308,6 @@ Default settings from code:
 - Mini-batches per epoch: `2`
 - Number if envs: `5`
 
-### Optimization
-
-Both algorithms use:
-- **Optimizer**: Adam with default β₁=0.9, β₂=0.999
-- **Batch updates**: Samples collected over N parallel environments
-- **Loss**:
-  - REINFORCE: `-E[log π_θ(a|s) · G_t]`
-  - PPO: `L^CLIP(θ) - c_v L^VALUE(θ) + c_e H[π_θ]` (with optional entropy bonus)
-
-
 ---
 
 ## 📊 Experiments & Results
@@ -383,40 +360,6 @@ Effect of mini-batch count. Larger mini-batches (10+) produce less noisy trainin
 ![PPO Clipping Range](assets/PPO_per_clip.jpg)
 
 Effect of clipping parameter. The standard value ε = 0.2 provides a compromise between ε = 0.5 (noisy but fast growth) and ε = 0.005 (smooth but slow growth).
-
----
-
-### 🧠 Value Function (PPO only)
-
-The value network `V(s)` estimates the expected return from state s:
-
-```
-V(s) = E[G_t | s_t = s]
-```
-
-Trained with MSE loss:
-```
-L^VALUE(θ) = (V_θ(s_t) - G_t)^2
-```
-
-Advantages `A_t = G_t - V(s_t)` used for policy updates. A good value function reduces variance significantly.
-
----
-
-## 🔧 Current Limitations
-
-
-
----
-
-## 🚀 Future Directions
-
-- Implement **A3C** (Asynchronous Advantage Actor-Critic) for true distributed training.
-- Add **attention mechanisms** for better feature learning.
-- Explore **curriculum learning** (graduated task difficulty).
-- Implement **inverse models** and **curiosity-driven exploration**.
-- Evaluate on other Atari environments.
-- Multi-agent bowling with competitive/cooperative objectives.
 
 ---
 

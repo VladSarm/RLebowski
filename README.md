@@ -147,6 +147,11 @@ A^{\pi_{\text{old}}}(s_T, a_T)
 ```
 
 
+
+where $A^{\pi_{\text{old}}}$ is the advantage estimate, $\epsilon$ is the clipping range, $\tau_b$ is the mini-batch size. In practice the advantage function is approximated by a learned value baseline.
+
+- ✅ Lower variance, clipping prevents destructive updates, data reuse across epochs.
+
 ### TRPO (Trust Region Policy Optimization)
 
 TRPO enforces a hard KL-divergence constraint on policy updates:
@@ -156,9 +161,6 @@ $$D_{KL}(\pi_{old} || \pi) \le \delta$$
 This prevents destructive policy collapses. The constraint is solved via conjugate gradient descent using Fisher-Vector products, followed by a backtracking line search. 
 *(For full mathematical derivations and agent implementation details, see [trpo_math_implement.md](trpo_math_implement.md))*
 
-where $A^{\pi_{\text{old}}}$ is the advantage estimate, $\epsilon$ is the clipping range, $\tau_b$ is the mini-batch size. In practice the advantage function is approximated by a learned value baseline.
-
-- ✅ Lower variance, clipping prevents destructive updates, data reuse across epochs.
 
 ---
 

@@ -61,14 +61,14 @@ $$\Delta\theta = \sqrt{\frac{2\delta}{g^T F^{-1} g}} \, F^{-1} g.$$
 **Fisher Information Matrix** $F$ is asymptotically the Hessian of $\bar{D}_{\text{KL}}$.  
 Natural gradient direction $x \approx F^{-1}g$, where $g = \nabla_\theta \hat{\mathcal{L}}(\theta)\big|_{\theta_{\text{old}}}$.
 
-**Hessian‑Vector Product** (without full matrix):
+**Hessian‑Vector Product** (using Autograd, so we can use conjugate gradient without explicit matrix inversion):
 
 $$F v = \nabla_\theta \big( (\nabla_\theta \bar{D}_{\text{KL}})^T v \big) + \text{damping} \cdot v$$
 
-Implemented via PyTorch autograd:
+<!-- Implemented via PyTorch autograd:
 1. $u = \nabla_\theta \bar{D}_{\text{KL}}$
 2. $y = u^T v$
-3. $F v = \nabla_\theta y + \text{damping} \cdot v$
+3. $F v = \nabla_\theta y + \text{damping} \cdot v$ -->
 
 **Update Steps**:
 1. Compute $g$.

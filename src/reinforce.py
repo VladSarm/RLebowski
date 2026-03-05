@@ -20,7 +20,7 @@ ppo_clip_epsilon = 0.2
 ppo_update_epochs = 10
 ppo_num_mini_batches = 2
 
-trpo_max_kl = 0.01
+trpo_max_kl = 0.005
 trpo_cg_iters = 10
 trpo_cg_damping = 0.1
 

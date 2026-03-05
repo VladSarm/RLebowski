@@ -6,7 +6,7 @@
 
 The repository combines:
 - a **Gymnasium environment wrapper** for Atari Bowling (`ALE/Bowling-v5`),
-- policy-gradient training with **PPO** and **REINFORCE**,
+- policy-gradient training with **PPO**, **TRPO**, and **REINFORCE**,
 - **CNN + MLP** policy network trained end-to-end in PyTorch,
 - TensorBoard integration for experiment tracking.
 
@@ -34,7 +34,7 @@ The repository combines:
 - **Action space**: 6 discrete actions — NOOP, FIRE, UP, DOWN, UPFIRE, DOWNFIRE.
 - **Observation**: ROI crop `(1, 75, 160)` from a single color channel.
 - **Policy**: CNN feature extractor + MLP head.
-- **Algorithms**: REINFORCE (Monte Carlo policy gradient) and PPO (Proximal Policy Optimization).
+- **Algorithms**: REINFORCE (Monte Carlo policy gradient), PPO (Proximal Policy Optimization), and TRPO (Trust Region Policy Optimization).
 - **Optimizer**: Adam, lr = `1e-3`, γ = `0.999`.
 
 ---
@@ -212,6 +212,10 @@ Epoch 1:        Epoch 2:
 **PPO trained:**
 
 ![PPO](assets/ppo_trained-2026-03-04_21.32.07.gif)
+
+**TRPO trained:**
+
+![TRPO](assets/trpo.gif)
 
 ### 📈 Algorithm Performance
 

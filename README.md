@@ -102,7 +102,7 @@ CNN learns spatial features (ball edge, pin positions) and provides translation 
 
 **Value, Q, and advantage functions:**
 
-$$V^\theta(s) = \mathbb{E}_{\pi^\theta}\!\left[\sum_{t=0}^{\infty} \gamma^t R_t \mid S_0 = s\right], \quad Q^\theta(s,a) = \mathbb{E}_{\pi^\theta}\!\left[\sum_{t=0}^{\infty} \gamma^t R_t \mid S_0{=}s, A_0{=}a\right]$$
+$$V^\theta(s) = \mathbb{E}_{\pi^\theta}\left[\sum_{t=0}^{\infty} \gamma^t R_t \mid S_0 = s\right], \quad Q^\theta(s,a) = \mathbb{E}_{\pi^\theta}\left[\sum_{t=0}^{\infty} \gamma^t R_t \mid S_0{=}s, A_0{=}a\right]$$
 
 $$A^\theta(s,a) = Q^\theta(s,a) - V^\theta(s)$$
 

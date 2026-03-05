@@ -257,7 +257,7 @@ Total return with default hyperparameters.
 | gamma | 0.999 |
 
 
-+ We observed that TRPO generally underperformed compared to PPO - likely due to suboptimal hyperparameter tuning - it successfully maintained the KL divergence within the specified trust region. The surrogate loss exhibited non-monotonic behavior, which we attribute to high-variance observations resulting from hardware constraints that limited us to only two parallel environments.
++ We observed that TRPO generally underperformed compared to PPO - likely due to suboptimal hyperparameter tuning - it successfully maintained the KL divergence within the specified trust region. The surrogate objective exhibited non-monotonic behavior, which we attribute to high-variance observations resulting from hardware constraints that limited us to only two parallel environments.
 
 ![TRPO Training](assets/trpo_training_metrics.png)
 

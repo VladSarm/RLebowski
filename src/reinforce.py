@@ -20,6 +20,10 @@ ppo_clip_epsilon = 0.2
 ppo_update_epochs = 10
 ppo_num_mini_batches = 2
 
+trpo_max_kl = 0.005
+trpo_cg_iters = 10
+trpo_cg_damping = 0.1
+
 
 # ---------------------------------------------------------------------------
 # AsyncVectorEnv requires:
@@ -59,6 +63,56 @@ def set_seed(seed):
     torch.manual_seed(seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
+
+
+# ---------------------------------------------------------------------------
+# TRPO Math Utils
+# ---------------------------------------------------------------------------
+
+def _flat_grad(grads):
+    grad_flatten = []
+    for grad in grads:
+        if grad is None:
+            continue
+        grad_flatten.append(grad.reshape(-1))
+    if not grad_flatten:
+        return torch.tensor([], device=DEVICE)
+    return torch.cat(grad_flatten)
+
+
+def _get_flat_params(model):
+    params = []
+    for p in model.parameters():
+        params.append(p.data.reshape(-1))
+    return torch.cat(params)
+
+
+def _set_flat_params(model, flat_params):
+    offset = 0
+    for p in model.parameters():
+        numel = p.numel()
+        p.data.copy_(flat_params[offset:offset + numel].view(p.shape))
+        offset += numel
+
+
+def _conjugate_gradient(f_Ax, b, cg_iters=10, residual_tol=1e-10):
+    p = b.clone()
+    r = b.clone()
+    x = torch.zeros_like(b)
+    rdotr = torch.dot(r, r)
+
+    for _ in range(cg_iters):
+        z = f_Ax(p)
+        v = rdotr / (torch.dot(p, z) + 1e-8)
+        x += v * p
+        r -= v * z
+        new_rdotr = torch.dot(r, r)
+        if new_rdotr < residual_tol:
+            break
+        mu = new_rdotr / rdotr
+        p = r + mu * p
+        rdotr = new_rdotr
+    return x
 
 
 # ---------------------------------------------------------------------------
@@ -241,6 +295,88 @@ def _reinforce_update(obs_per, actions_per, normalized_returns_t):
     }
 
 
+def _trpo_update(obs_per, actions_per, old_log_probs_per, advantages_t):
+    """Run one TRPO policy update on the rollout batch."""
+    obs_t, actions_t, old_log_probs_t = _flatten_rollout(obs_per, actions_per, old_log_probs_per)
+
+    if advantages_t.numel() != actions_t.numel():
+        raise ValueError("Mismatch between rollout samples and computed advantages.")
+
+    with torch.no_grad():
+        # Store old action distributions exactly for KL divergence.
+        old_log_probs_all = policy.get_action_log_probabilities(obs_t)
+        old_probs_all = old_log_probs_all.exp()
+
+    def _compute_surrogate_loss():
+        log_probs_all = policy.get_action_log_probabilities(obs_t)
+        new_log_probs_t = log_probs_all.gather(1, actions_t.unsqueeze(1)).squeeze(1)
+        ratios = torch.exp(new_log_probs_t - old_log_probs_t)
+        return (ratios * advantages_t).mean()
+
+    def _compute_kl():
+        log_probs_all = policy.get_action_log_probabilities(obs_t)
+        return (old_probs_all * (old_log_probs_all - log_probs_all)).sum(dim=-1).mean()
+
+    surrogate_loss = _compute_surrogate_loss()
+    grads = torch.autograd.grad(surrogate_loss, policy.parameters())
+    policy_gradient = _flat_grad(grads).detach()
+
+    if torch.all(policy_gradient == 0):
+        return {
+            "surrogate_loss": float(surrogate_loss.item()),
+            "kl_divergence": 0.0,
+        }
+
+    def _fisher_vector_product(v):
+        kl = _compute_kl()
+        kl_grads = torch.autograd.grad(kl, policy.parameters(), create_graph=True)
+        flat_kl_grads = _flat_grad(kl_grads)
+        v_var = v.detach()
+        kl_v = (flat_kl_grads * v_var).sum()
+        kl_v_grads = torch.autograd.grad(kl_v, policy.parameters())
+        flat_kl_v_grads = _flat_grad(kl_v_grads).detach()
+        return flat_kl_v_grads + v * trpo_cg_damping
+
+    step_dir = _conjugate_gradient(_fisher_vector_product, policy_gradient, trpo_cg_iters)
+
+    shs = 0.5 * (step_dir * _fisher_vector_product(step_dir)).sum(0, keepdim=True)
+    shs_clamped = torch.clamp(shs, min=1e-8)
+    lm = torch.sqrt(shs_clamped / trpo_max_kl)
+    full_step = step_dir / lm[0]
+
+    step_size = 1.0
+    old_params = _get_flat_params(policy)
+    old_loss = surrogate_loss.item()
+
+    success = False
+    final_kl = 0.0
+
+    for _ in range(10):
+        new_params = old_params + step_size * full_step
+        _set_flat_params(policy, new_params)
+
+        with torch.no_grad():
+            new_loss = _compute_surrogate_loss().item()
+            new_kl = _compute_kl().item()
+
+        loss_improve = new_loss - old_loss
+
+        if new_kl <= trpo_max_kl and loss_improve > 0:
+            success = True
+            final_kl = new_kl
+            break
+
+        step_size *= 0.5
+
+    if not success:
+        _set_flat_params(policy, old_params)
+
+    return {
+        "surrogate_loss": float(old_loss),
+        "kl_divergence": float(final_kl)
+    }
+
+
 # ---------------------------------------------------------------------------
 # Main training loop
 # ---------------------------------------------------------------------------
@@ -256,8 +392,8 @@ def episode_termination(
 ):
     if n_envs < 1:
         raise ValueError("n_envs must be >= 1 for batch-only training.")
-    if algo not in {"ppo", "reinforce"}:
-        raise ValueError("algo must be one of: 'ppo', 'reinforce'.")
+    if algo not in {"ppo", "reinforce", "trpo"}:
+        raise ValueError("algo must be one of: 'ppo', 'reinforce', 'trpo'.")
 
     set_seed(seed)
     if checkpoint_dir:
@@ -291,6 +427,8 @@ def episode_termination(
 
         if algo == "ppo":
             metrics = _ppo_update(obs_per, actions_per, old_log_probs_per, returns_t)
+        elif algo == "trpo":
+            metrics = _trpo_update(obs_per, actions_per, old_log_probs_per, returns_t)
         else:
             metrics = _reinforce_update(obs_per, actions_per, returns_t)
 
@@ -315,6 +453,16 @@ def episode_termination(
             print(f"Episode {episode:4d} | Algo: {algo} | Envs: {n_envs} | Steps: {mean_steps:4d} | "
                   f"Return: {mean_reward:6.1f} | PolicyLoss: {metrics['policy_loss']:8.4f} | "
                   f"KL: {metrics['approx_kl']:.5f} | ClipFrac: {metrics['clip_fraction']:.3f} | "
+                  f"AdvAbs: {ret_abs_mean:.3f} | AdvStd: {ret_std:.3f}")
+        elif algo == "trpo":
+            writer.add_scalar("train/surrogate_loss", metrics["surrogate_loss"], episode)
+            writer.add_scalar("train/kl_divergence", metrics["kl_divergence"], episode)
+            writer.add_scalar("train/adv_abs_mean", ret_abs_mean, episode)
+            writer.add_scalar("train/adv_std", ret_std, episode)
+
+            print(f"Episode {episode:4d} | Algo: {algo} | Envs: {n_envs} | Steps: {mean_steps:4d} | "
+                  f"Return: {mean_reward:6.1f} | SurrLoss: {metrics['surrogate_loss']:8.4f} | "
+                  f"KL: {metrics['kl_divergence']:.5f} | "
                   f"AdvAbs: {ret_abs_mean:.3f} | AdvStd: {ret_std:.3f}")
         else:
             writer.add_scalar("train/loss", metrics["loss"], episode)

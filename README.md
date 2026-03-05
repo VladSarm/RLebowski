@@ -6,7 +6,7 @@
 
 The repository combines:
 - a **Gymnasium environment wrapper** for Atari Bowling (`ALE/Bowling-v5`),
-- policy-gradient training with **PPO** and **REINFORCE**,
+- policy-gradient training with **PPO**, **TRPO**, and **REINFORCE**,
 - **CNN + MLP** policy network trained end-to-end in PyTorch,
 - TensorBoard integration for experiment tracking.
 
@@ -34,7 +34,7 @@ The repository combines:
 - **Action space**: 6 discrete actions — NOOP, FIRE, UP, DOWN, UPFIRE, DOWNFIRE.
 - **Observation**: ROI crop `(1, 75, 160)` from a single color channel.
 - **Policy**: CNN feature extractor + MLP head.
-- **Algorithms**: REINFORCE (Monte Carlo policy gradient) and PPO (Proximal Policy Optimization).
+- **Algorithms**: REINFORCE (Monte Carlo policy gradient), PPO (Proximal Policy Optimization), and TRPO (Trust Region Policy Optimization).
 - **Optimizer**: Adam, lr = `1e-3`, γ = `0.999`.
 
 ---
@@ -126,6 +126,7 @@ Gradient estimator (gradient ascent on $J$):
 
 ### 🚀 PPO (Proximal Policy Optimization)
 
+
 PPO replaces hard TRPO constraints with a **clipped surrogate objective**:
 
 ```math
@@ -144,6 +145,16 @@ A^{\pi_{\text{old}}}(s_T, a_T)
 \right\}
 \right]
 ```
+
+
+### TRPO (Trust Region Policy Optimization)
+
+TRPO enforces a hard KL-divergence constraint on policy updates:
+
+$$D_{KL}(\pi_{old} || \pi) \le \delta$$
+
+This prevents destructive policy collapses. The constraint is solved via conjugate gradient descent using Fisher-Vector products, followed by a backtracking line search. 
+*(For full mathematical derivations and agent implementation details, see [trpo_math_implement.md](trpo_math_implement.md))*
 
 where $A^{\pi_{\text{old}}}$ is the advantage estimate, $\epsilon$ is the clipping range, $\tau_b$ is the mini-batch size. In practice the advantage function is approximated by a learned value baseline.
 
@@ -202,6 +213,10 @@ Epoch 1:        Epoch 2:
 
 ![PPO](assets/ppo_trained-2026-03-04_21.32.07.gif)
 
+**TRPO trained:**
+
+![TRPO](assets/trpo.gif)
+
 ### 📈 Algorithm Performance
 
 ![PPO vs REINFORCE](assets/PPO_VS_REINFORCE.jpg)
@@ -226,6 +241,24 @@ Total return with default hyperparameters.
 
 ![PPO Clipping](assets/PPO_per_clip.jpg)
 
+### 🔬 TRPO Training
+
++ Since TRPO was trained on a separate machine, its performance curve is displayed below.
+
+ **Hyperparameters:**
+<!-- --gamma = 0.999 -->
+| Parameter | Value |
+|---|---|
+| max_kl | 0.005 |
+| cg_iters | 10 |
+| cg_damping | 0.1 |
+| gamma | 0.999 |
+
+
++ We observed that TRPO generally underperformed compared to PPO - likely due to suboptimal hyperparameter tuning - it successfully maintained the KL divergence within the specified trust region. The surrogate loss exhibited non-monotonic behavior, which we attribute to high-variance observations resulting from hardware constraints that limited us to only two parallel environments.
+
+![TRPO Training](assets/trpo_training_metrics.png)
+
 ---
 
 ## 📚 References
@@ -238,9 +271,3 @@ Total return with default hyperparameters.
 ---
 
 📝 **Project prompts:** [PROMPTME.md](PROMPTME.md)
-
----
-
-## 🚀 Extensions
-
-🔗 **TRPO implementation** — see [TRPO dev branch](https://github.com/VladSarm/RLebowski/tree/trpo)

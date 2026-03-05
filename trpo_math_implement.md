@@ -11,15 +11,15 @@ $$h^{(2)} = \tanh(h^{(1)} w_2 + b_2)$$
 $$z = h^{(2)} w_3 + b_3$$
 $$A_t \sim \pi^\theta(\bullet|S_t) = \text{Categorical}(\text{softmax}(z))$$ -->
 
-#### 1.  Value function estimation
-1) **Baseline (Non‑TD)**  
+<!-- #### 1.  Value function estimation -->
+<!-- 1) **Baseline (Non‑TD)**  
 Discounted empirical returns (no neural net):
 
 $$g_t = r_t + \gamma(1-d_t)g_{t+1}$$
 
 + Advantage uses mean return from previous iteration $b_{\text{prev}}$:
 
-$$\hat{A}_t = g_t - b_{\text{prev}}$$
+$$\hat{A}_t = g_t - b_{\text{prev}}$$ -->
 
 <!-- 2) **Value Network**  
 Linear value function:
@@ -34,7 +34,7 @@ $$\delta_t = r_t + \gamma v^w(s_{t+1}) - v^w(s_t)$$
 $$\hat{A}_t = \sum_{l=0}^{N_T} (\gamma \lambda)^l \delta_{t+l}$$
 $$\hat{A}_t \leftarrow \frac{\hat{A}_t - \mu(\hat{A})}{\sigma(\hat{A}) + \epsilon}$$ -->
 
-#### 2. Surrogate Objective
+#### 1. Surrogate Objective
 
 $$\mathcal{L}(\theta) = \mathbb{E}_{S_t \sim \rho^{\theta_{\text{old}}}} \left[ \mathbb{E}_{A_t \sim \pi^\theta(\bullet|S_t)} \left[ A^{\pi_{\theta_{\text{old}}}}(S_t, A_t) \right] \right]$$
 
@@ -56,7 +56,7 @@ Maximizing the linearized surrogate $\hat{\mathcal{L}}(\theta)$ subject to this 
 
 $$\Delta\theta = \sqrt{\frac{2\delta}{g^T F^{-1} g}} \, F^{-1} g.$$
 
-#### 3. Solving the Constrained Optimization
+#### 2. Solving the Constrained Optimization
 
 **Fisher Information Matrix** $F$ is asymptotically the Hessian of $\bar{D}_{\text{KL}}$.  
 Natural gradient direction $x \approx F^{-1}g$, where $g = \nabla_\theta \hat{\mathcal{L}}(\theta)\big|_{\theta_{\text{old}}}$.
@@ -75,7 +75,7 @@ $$F v = \nabla_\theta \big( (\nabla_\theta \bar{D}_{\text{KL}})^T v \big) + \tex
 2. Solve $F x = g$ via Conjugate Gradient → $x$.
 3. Scale step: $\beta = \sqrt{\frac{2\delta}{x^T F x}}$, $\Delta \theta = \beta x$.
 
-#### 5. Backtracking Line Search
+#### 3. Backtracking Line Search
 
 Exponentially shrink step size $\alpha$ starting from 1:
 
